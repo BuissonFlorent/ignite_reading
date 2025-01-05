@@ -1,4 +1,10 @@
-# Asymptotic Regression Model for Reading Scores - Project TODO
+# Project TODO List
+
+## Model Development
+- [x] Implement basic asymptotic learning model
+- [x] Add time-based learning rate modification
+- [x] Add parameter validation
+- [x] Implement early stopping
 
 ## Model Structure Setup
 - [x] Set up basic project structure

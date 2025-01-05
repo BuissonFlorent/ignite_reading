@@ -1,51 +1,140 @@
 import sys
 import os
+import json
+from datetime import datetime
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 import torch
 import torch.nn as nn
-import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
-from datetime import datetime
+import matplotlib.pyplot as plt
 from src.data.dataset import ReadingScoreDataset
 from src.model.asymptotic_model import AsymptoticModel
+from src.examples.train_simple import save_parameters, load_parameters
+from src.visualization.learning_curves import plot_learning_curves
 
-def train_model(dataset_path, num_epochs=20, learning_rate=0.01, patience=5, min_delta=1e-4):
+def plot_results(dataset, model, save_dir='plots', max_curves_per_plot=6):
     """
-    Train the model on the full dataset with early stopping.
+    Plot actual vs predicted values for each sequence in multiple subplots.
+    
     Args:
-        dataset_path: Path to raw_test_data.csv
+        dataset: ReadingScoreDataset instance
+        model: Trained AsymptoticModel
+        save_dir: Directory to save plots
+        max_curves_per_plot: Maximum number of learning curves per subplot
+    """
+    os.makedirs(save_dir, exist_ok=True)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    
+    # Calculate number of subplots needed
+    n_sequences = len(dataset)
+    n_plots = int(np.ceil(n_sequences / max_curves_per_plot))
+    
+    # Create figure with subplots
+    fig = plt.figure(figsize=(15, 5 * n_plots))
+    plt.subplots_adjust(hspace=0.4)
+    
+    for plot_idx in range(n_plots):
+        # Calculate which sequences go in this subplot
+        start_idx = plot_idx * max_curves_per_plot
+        end_idx = min((plot_idx + 1) * max_curves_per_plot, n_sequences)
+        
+        ax = fig.add_subplot(n_plots, 1, plot_idx + 1)
+        
+        # Plot sequences for this subplot
+        for i in range(start_idx, end_idx):
+            X, y = dataset[i]
+            with torch.no_grad():
+                predictions = model(X)
+            
+            # Get days and protocols for plotting
+            days = X[:, 1].numpy()
+            protocols = X[:, 0].numpy()
+            
+            # Create label with protocol information
+            unique_protocols = np.unique(protocols)
+            protocol_str = f"Student {i} (Protocols: {', '.join(map(str, unique_protocols.astype(int)))})"
+            
+            # Plot actual values
+            ax.scatter(days, y.numpy(), label=f'Actual {protocol_str}', alpha=0.5)
+            # Plot predicted values
+            ax.plot(days, predictions.numpy(), '--', label=f'Predicted', alpha=0.7)
+        
+        ax.set_xlabel('Days since start')
+        ax.set_ylabel('Accuracy')
+        ax.set_title(f'Learning Curves (Students {start_idx}-{end_idx-1})')
+        ax.grid(True, alpha=0.3)
+        ax.set_ylim(0, 1)  # Set y-axis limits for accuracy
+        
+        # Add legend with smaller font and outside plot
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', 
+                 fontsize='small', borderaxespad=0.)
+    
+    # Save plot
+    plot_path = os.path.join(save_dir, f'learning_curves_{timestamp}.png')
+    plt.savefig(plot_path, bbox_inches='tight', dpi=300)
+    plt.close()
+    
+    print(f"Saved plot to {plot_path}")
+    return plot_path
+
+def train_full_dataset(data_path, student_data_path, num_epochs=20, init_params=None,
+                      patience=5, min_delta=1e-4):
+    """
+    Train model on full dataset with early stopping.
+    
+    Args:
+        data_path: Path to raw_test_data.csv
+        student_data_path: Path to raw_student_data.csv
         num_epochs: Maximum number of training epochs
-        learning_rate: Learning rate for optimizer
+        init_params: Optional path to initial parameter values
         patience: Number of epochs to wait for improvement before stopping
         min_delta: Minimum change in loss to qualify as an improvement
     """
     try:
-        dataset = ReadingScoreDataset(dataset_path)
+        dataset = ReadingScoreDataset(data_path, student_data_path)
     except Exception as e:
         print(f"Error loading dataset: {e}")
-        return None, None
+        return None
+    
+    # Split dataset indices for validation
+    indices = list(range(len(dataset)))
+    np.random.shuffle(indices)
+    split = max(1, int(np.floor(0.2 * len(dataset))))
+    train_indices = indices[split:]
+    val_indices = indices[:split]
+    
+    print(f"Training samples: {len(train_indices)}")
+    print(f"Validation samples: {len(val_indices)}")
     
     model = AsymptoticModel()
-    criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     
-    train_losses = []
-    best_loss = float('inf')
+    # Load initial parameters if provided
+    if init_params and os.path.exists(init_params):
+        model = load_parameters(model, init_params)
+        print("Using initial parameters from:", init_params)
+    
+    criterion = nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    
+    print(f"\nTraining for up to {num_epochs} epochs...")
+    print("Initial model parameters:")
+    for name, param in model.named_parameters():
+        print(f"{name}: {param.data}")
+    
+    # Early stopping setup
+    best_val_loss = float('inf')
+    best_model_state = None
     patience_counter = 0
     
-    print(f"Starting training on {len(dataset)} student sequences")
-    print("=" * 50)
-    
     for epoch in range(num_epochs):
-        epoch_loss = 0.0
-        num_sequences = 0
+        # Training phase
+        model.train()
+        train_loss = 0
+        num_train_sequences = 0
         
-        for i in range(len(dataset)):
-            X, y = dataset[i]  # X now contains both protocol and days
-            
-            # Forward pass
+        for i in train_indices:
+            X, y = dataset[i]
             predictions = model(X)
             loss = criterion(predictions, y)
             
@@ -53,110 +142,77 @@ def train_model(dataset_path, num_epochs=20, learning_rate=0.01, patience=5, min
             loss.backward()
             optimizer.step()
             
-            epoch_loss += loss.item()
-            num_sequences += 1
+            train_loss += loss.item()
+            num_train_sequences += 1
         
-        avg_loss = epoch_loss / num_sequences
-        train_losses.append(avg_loss)
+        avg_train_loss = train_loss / num_train_sequences
         
-        # Print progress every epoch
-        print(f'Epoch [{epoch+1}/{num_epochs}], Average Loss: {avg_loss:.4f}')
+        # Validation phase
+        model.eval()
+        val_loss = 0
+        num_val_sequences = len(val_indices)
+        
+        with torch.no_grad():
+            for i in val_indices:
+                X, y = dataset[i]
+                predictions = model(X)
+                loss = criterion(predictions, y)
+                val_loss += loss.item()
+        
+        avg_val_loss = val_loss / num_val_sequences
+        
+        # Print progress
+        if (epoch + 1) % 5 == 0:
+            print(f'\nEpoch [{epoch+1}/{num_epochs}]')
+            print(f'Train Loss: {avg_train_loss:.4f}')
+            print(f'Validation Loss: {avg_val_loss:.4f}')
+            print("Current model parameters:")
+            for name, param in model.named_parameters():
+                print(f"{name}: {param.data}")
         
         # Early stopping check
-        if avg_loss < best_loss - min_delta:
-            best_loss = avg_loss
+        if avg_val_loss < best_val_loss - min_delta:
+            best_val_loss = avg_val_loss
+            best_model_state = model.state_dict().copy()
             patience_counter = 0
         else:
             patience_counter += 1
-            
+        
         if patience_counter >= patience:
-            print(f"\nEarly stopping triggered after {epoch + 1} epochs")
+            print(f'\nEarly stopping triggered after {epoch + 1} epochs')
             break
     
-    return model, train_losses
-
-def save_results(model, train_losses, save_dir='results'):
-    """Save model parameters and training plot"""
-    # Create results directory if it doesn't exist
-    os.makedirs(save_dir, exist_ok=True)
+    # Restore best model
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
     
-    # Generate timestamp for unique filenames
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    
-    # Save training loss plot
-    plt.figure(figsize=(10, 6))
-    plt.plot(train_losses)
-    plt.xlabel('Epoch')
-    plt.ylabel('Average Loss')
-    plt.title('Training Loss Over Time')
-    plt.grid(True, alpha=0.3)
-    plt.savefig(os.path.join(save_dir, f'training_loss_{timestamp}.png'))
-    plt.close()
-    
-    # Save model parameters
-    with torch.no_grad():
-        k = torch.exp(model.k)
-        b = torch.sigmoid(model.b)
-        params = {
-            'learning_rate (k)': k.item(),
-            'initial_level (b)': b.item(),
-            'final_loss': train_losses[-1]
-        }
-        
-        # Save parameters to file
-        with open(os.path.join(save_dir, f'model_params_{timestamp}.txt'), 'w') as f:
-            for key, value in params.items():
-                f.write(f'{key}: {value:.4f}\n')
-
-def plot_predictions(model, dataset, save_dir='results'):
-    """Plot model predictions against actual data"""
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    
-    plt.figure(figsize=(10, 6))
-    
-    # Collect all data points
-    all_protocols = []
-    all_accuracies = []
-    for i in range(len(dataset)):
-        protocols, accuracies = dataset[i]
-        all_protocols.extend(protocols.numpy())
-        all_accuracies.extend(accuracies.numpy())
-    
-    # Plot actual data
-    plt.scatter(all_protocols, all_accuracies, 
-               alpha=0.5, label='Actual Data', 
-               color='blue')
-    
-    # Plot model predictions
-    with torch.no_grad():
-        x = torch.arange(1, int(max(all_protocols)) + 1, dtype=torch.float)
-        y = model(x)
-        plt.plot(x.numpy(), y.numpy(), 
-                'r-', label='Model Predictions', 
-                linewidth=2)
-    
-    plt.xlabel('Protocol Number')
-    plt.ylabel('Accuracy')
-    plt.title('Reading Accuracy vs Protocol Number')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.xticks(np.arange(1, int(max(all_protocols)) + 1))
-    
-    plt.savefig(os.path.join(save_dir, f'predictions_{timestamp}.png'))
-    plt.close()
+    return model, best_val_loss
 
 if __name__ == "__main__":
-    # Use the same paths as in the example
-    dataset = ReadingScoreDataset('raw_test_data.csv', 'raw_student_data.csv')
+    data_path = 'raw_test_data.csv'
+    student_data_path = 'raw_student_data.csv'
     
-    print(f"Loading dataset...")
-    model, train_losses = train_model(dataset, num_epochs=20, patience=5, min_delta=1e-4)
+    # Look for most recent parameter file
+    param_dir = 'model_params'
+    if os.path.exists(param_dir):
+        param_files = sorted([f for f in os.listdir(param_dir) if f.startswith('model_params_')])
+        init_params = os.path.join(param_dir, param_files[-1]) if param_files else None
+    else:
+        init_params = None
+    
+    print("Starting training process...")
+    model, final_loss = train_full_dataset(data_path, student_data_path, init_params=init_params)
     
     if model is not None:
-        print("\nTraining completed. Saving results...")
-        save_results(model, train_losses)
+        print("\nTraining completed.")
+        print(f"Best validation loss: {final_loss:.4f}")
+        print("Final model parameters:")
+        for name, param in model.named_parameters():
+            print(f"{name}: {param.data}")
         
-        # Plot predictions
-        plot_predictions(model, dataset)
+        # Save final parameters with loss
+        save_parameters(model, final_loss=final_loss)
         
-        print("\nResults saved in 'results' directory") 
+        # Create and save plot
+        dataset = ReadingScoreDataset(data_path, student_data_path)
+        plot_learning_curves(dataset, model) 

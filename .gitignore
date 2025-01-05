@@ -41,3 +41,11 @@ ENV/
 
 # Results and data
 results/ 
+
+# Plots
+plots/
+**/plots/
+
+# Model parameters
+model_params/
+**/model_params/ 
