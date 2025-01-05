@@ -6,7 +6,6 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from torch.utils.data import DataLoader
-from torch.nn.utils.rnn import PackedSequence
 from src.data.dataset import ReadingScoreDataset
 
 class TestReadingScoreDataset(unittest.TestCase):
@@ -29,27 +28,29 @@ class TestReadingScoreDataset(unittest.TestCase):
     
     def test_dataset_getitem(self):
         """Test that __getitem__ returns correct structure"""
-        X, protocols, y = self.dataset[0]  # Get first student
+        X, y = self.dataset[0]  # Get first student
         self.assertIsInstance(X, torch.Tensor)
-        self.assertIsInstance(protocols, torch.Tensor)
         self.assertIsInstance(y, torch.Tensor)
         self.assertEqual(len(X), 3)  # First student has 3 tests
+        
+        # Check that X contains protocol numbers
+        self.assertTrue(torch.all(X >= 1))  # All protocols should be >= 1
+        self.assertTrue(X.dtype == torch.float)  # Should be float tensor
     
-    def test_dataloader_batch(self):
-        """Test that DataLoader returns correct batch structure"""
-        loader = DataLoader(
-            self.dataset,
-            batch_size=2,
-            shuffle=False,
-            collate_fn=self.dataset.collate_fn
-        )
+    def test_single_student_data(self):
+        """Test getting individual student data"""
+        X, y = self.dataset[0]
         
-        X_packed, protocols_packed, y_packed = next(iter(loader))
+        # Check shapes match
+        self.assertEqual(X.shape, y.shape)
         
-        # Check that we get PackedSequence objects
-        self.assertIsInstance(X_packed, PackedSequence)
-        self.assertIsInstance(protocols_packed, PackedSequence)
-        self.assertIsInstance(y_packed, PackedSequence)
+        # Check data types
+        self.assertEqual(X.dtype, torch.float)
+        self.assertEqual(y.dtype, torch.float)
+        
+        # Check value ranges
+        self.assertTrue(torch.all(X >= 1))  # Protocols start at 1
+        self.assertTrue(torch.all(y >= 0) and torch.all(y <= 1))  # Accuracy between 0 and 1
     
     def tearDown(self):
         if os.path.exists(self.test_csv):

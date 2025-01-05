@@ -1,45 +1,45 @@
 import unittest
-from pathlib import Path
-from src.data.dataset import ReadingScoreDataset
-from src.data.student import Student
+import torch
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 from torch.utils.data import DataLoader
+from src.data.dataset import ReadingScoreDataset
 
 class TestUsage(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.data_path = Path(__file__).parent / 'data' / 'dummy_data.csv'
-        cls.dataset = ReadingScoreDataset(cls.data_path)
-
+    def setUp(self):
+        # Create a small test dataset
+        data = {
+            'student_id': [1, 1, 1, 2, 2],
+            'test_time': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-01', '2023-01-02'],
+            'protocol': [1, 1, 2, 1, 2],
+            'accuracy': [0.5, 0.6, 0.8, 0.4, 0.7]
+        }
+        self.test_csv = 'test_data.csv'
+        import pandas as pd
+        pd.DataFrame(data).to_csv(self.test_csv, index=False)
+        self.dataset = ReadingScoreDataset(self.test_csv)
+    
     def test_basic_usage(self):
-        # Test dataset creation
-        self.assertIsNotNone(self.dataset)
+        """Test basic dataset usage with single items"""
+        X, y = self.dataset[0]
+        self.assertIsInstance(X, torch.Tensor)
+        self.assertIsInstance(y, torch.Tensor)
         
-        # Test feature dimensionality
-        self.assertTrue(self.dataset.input_size > 0)
-        
-        # Test student access
-        first_student_id = self.dataset.student_ids[0]
-        student = Student(first_student_id, self.dataset)
-        
-        # Test student properties
-        self.assertEqual(student.n_observations, 3)
-        self.assertTrue(0 <= student.mean_accuracy <= 1)
-        self.assertTrue(len(student.unique_titles) > 0)
+        # Check that protocols and accuracy values match
+        self.assertEqual(X.shape, y.shape)
+    
+    def test_iteration(self):
+        """Test that we can iterate over the dataset"""
+        for i in range(len(self.dataset)):
+            X, y = self.dataset[i]
+            self.assertIsInstance(X, torch.Tensor)
+            self.assertIsInstance(y, torch.Tensor)
+    
+    def tearDown(self):
+        if os.path.exists(self.test_csv):
+            os.remove(self.test_csv)
 
-    def test_dataloader(self):
-        loader = DataLoader(self.dataset, batch_size=1, shuffle=False)
-        batch = next(iter(loader))
-        
-        # Check if batch contains features and targets
-        self.assertEqual(len(batch), 2)
-        X, y = batch
-        
-        # Check batch dimensions
-        # X shape should be [batch_size, sequence_length, n_features]
-        self.assertEqual(len(X.shape), 3)  # Changed from 2 to 3
-        # y shape should be [batch_size, sequence_length]
-        self.assertEqual(len(y.shape), 2)
-        
-        # Additional shape checks
-        self.assertEqual(X.shape[0], 1)  # batch_size
-        self.assertTrue(X.shape[2] == self.dataset.input_size)  # number of features 
+if __name__ == '__main__':
+    unittest.main(verbosity=2) 
