@@ -12,12 +12,13 @@ class TestDatasetStudent(unittest.TestCase):
         """Create a minimal test dataset"""
         self.temp_files = []
         
-        # Create test data
+        # Create test data with 3 sequences per student
         test_data = {
-            'student_id': [1, 1, 2, 2],
-            'test_time': ['2023-01-01', '2023-01-02', '2023-01-01', '2023-01-02'],
-            'protocol': [1, 2, 1, 2],
-            'accuracy': [0.5, 0.6, 0.4, 0.5]
+            'student_id': [1, 1, 1, 2, 2, 2],
+            'test_time': ['2023-01-01', '2023-01-02', '2023-01-03',
+                         '2023-01-01', '2023-01-02', '2023-01-03'],
+            'protocol': [1, 2, 3, 1, 2, 3],
+            'accuracy': [0.5, 0.6, 0.7, 0.4, 0.5, 0.6]
         }
         
         student_data = {
@@ -56,7 +57,7 @@ class TestDatasetStudent(unittest.TestCase):
         # Check sequence counts
         student1_sequences = [i for i in range(len(self.dataset)) 
                             if self.dataset.data.iloc[i]['student_id'] == 1]
-        self.assertEqual(len(student1_sequences), 2)
+        self.assertEqual(len(student1_sequences), 3)
     
     def test_student_data_integrity(self):
         """Test that student data is correctly linked and accessible"""
@@ -87,7 +88,7 @@ class TestDatasetStudent(unittest.TestCase):
         
         # Check protocols are sequential
         protocols = [self.dataset.data.iloc[i]['protocol'] for i in student1_sequences]
-        self.assertEqual(protocols, [1, 2])
+        self.assertEqual(protocols, [1, 2, 3])
     
     def test_data_consistency(self):
         """Test that data is consistent across different access methods"""
@@ -101,6 +102,23 @@ class TestDatasetStudent(unittest.TestCase):
         # Check values match original data
         self.assertEqual(float(y), 0.5)  # first accuracy value
         self.assertEqual(int(X[0][0]), 1)  # first protocol number
+    
+    def test_find_student_sequences(self):
+        """Test finding all sequences for a specific student"""
+        # Test first student
+        student1_sequences = [i for i in range(len(self.dataset)) 
+                            if self.dataset.data.iloc[i]['student_id'] == 1]
+        self.assertEqual(len(student1_sequences), 3)
+        
+        # Test second student
+        student2_sequences = [i for i in range(len(self.dataset)) 
+                            if self.dataset.data.iloc[i]['student_id'] == 2]
+        self.assertEqual(len(student2_sequences), 3)
+        
+        # Test non-existent student
+        student999_sequences = [i for i in range(len(self.dataset)) 
+                              if self.dataset.data.iloc[i]['student_id'] == 999]
+        self.assertEqual(len(student999_sequences), 0)
     
     def tearDown(self):
         """Clean up temporary files"""

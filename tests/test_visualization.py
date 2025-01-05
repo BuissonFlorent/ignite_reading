@@ -65,7 +65,7 @@ class TestVisualization(unittest.TestCase):
         """Test finding indices for a specific student"""
         # Test existing student
         indices = find_student_indices(self.dataset, 1)
-        self.assertEqual(len(indices), 2)  # Should find 2 sequences for student 1
+        self.assertEqual(len(indices), 3)  # Should find 3 sequences for student 1
         
         # Verify all indices point to the same student
         for idx in indices:
@@ -74,11 +74,11 @@ class TestVisualization(unittest.TestCase):
         
         # Test non-existent student
         indices = find_student_indices(self.dataset, 999)
-        self.assertEqual(len(indices), 0)  # Should find no sequences
+        self.assertEqual(len(indices), 0)
         
         # Test edge case - student 2
         indices = find_student_indices(self.dataset, 2)
-        self.assertEqual(len(indices), 2)  # Should find 2 sequences for student 2
+        self.assertEqual(len(indices), 3)  # Should find 3 sequences for student 2
         self.assertTrue(all(self.dataset.data.iloc[idx]['student_id'] == 2 
                            for idx in indices))
     
