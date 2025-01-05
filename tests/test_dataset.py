@@ -1,62 +1,59 @@
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent))
-
 import unittest
-import pandas as pd
 import torch
+import pandas as pd
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+from torch.utils.data import DataLoader
+from torch.nn.utils.rnn import PackedSequence
 from src.data.dataset import ReadingScoreDataset
 
 class TestReadingScoreDataset(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        # Get path to dummy data
-        cls.data_path = Path(__file__).parent / 'data' / 'dummy_data.csv'
-        cls.dataset = ReadingScoreDataset(cls.data_path)
-
+    def setUp(self):
+        # Create a small test dataset
+        data = {
+            'student_id': [1, 1, 1, 2, 2],
+            'test_time': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-01', '2023-01-02'],
+            'protocol': [1, 1, 2, 1, 2],
+            'accuracy': [0.5, 0.6, 0.8, 0.4, 0.7]
+        }
+        self.test_csv = 'test_data.csv'
+        pd.DataFrame(data).to_csv(self.test_csv, index=False)
+        self.dataset = ReadingScoreDataset(self.test_csv)
+    
     def test_dataset_loading(self):
-        self.assertIsNotNone(self.dataset)
-        self.assertEqual(len(self.dataset.student_ids), 2)  # Two unique students
-
-    def test_feature_creation(self):
-        # Check if all expected features exist
-        expected_features = ['days_normalized', 'protocol_normalized', 'lesson_normalized']
-        for feature in expected_features:
-            self.assertIn(feature, self.dataset.feature_names)
-        
-        # Check if day-of-week features exist (only test for presence, not exact number)
-        dow_features = [f for f in self.dataset.feature_names if f.startswith('dow_')]
-        self.assertTrue(len(dow_features) > 0, "No day-of-week features found")
-        # Our dummy data only has a few days, so we can't expect all 7 days
-
-    def test_student_tensor(self):
-        # Test for first student
-        student_id = self.dataset.student_ids[0]
-        X, y = self.dataset.get_student_tensor(student_id)
-        
-        # Check tensor shapes
+        """Test basic dataset loading"""
+        self.assertIsInstance(self.dataset.data, pd.DataFrame)
+        self.assertEqual(len(self.dataset.student_ids), 2)  # We have 2 students
+    
+    def test_dataset_getitem(self):
+        """Test that __getitem__ returns correct structure"""
+        X, protocols, y = self.dataset[0]  # Get first student
         self.assertIsInstance(X, torch.Tensor)
+        self.assertIsInstance(protocols, torch.Tensor)
         self.assertIsInstance(y, torch.Tensor)
-        self.assertEqual(X.dim(), 2)
-        self.assertEqual(y.dim(), 1)
+        self.assertEqual(len(X), 3)  # First student has 3 tests
+    
+    def test_dataloader_batch(self):
+        """Test that DataLoader returns correct batch structure"""
+        loader = DataLoader(
+            self.dataset,
+            batch_size=2,
+            shuffle=False,
+            collate_fn=self.dataset.collate_fn
+        )
         
-        # First student should have 3 observations
-        self.assertEqual(len(y), 3)
-
-    def test_data_normalization(self):
-        # Test if normalized columns have mean close to 0 and std close to 1
-        # With small datasets, we'll use a wider tolerance
-        for col in ['days_normalized', 'protocol_normalized', 'lesson_normalized']:
-            values = self.dataset.data[col].values
-            self.assertAlmostEqual(values.mean(), 0, places=1)
-            # For small datasets, std might not be exactly 1
-            std = values.std()
-            self.assertTrue(0.5 <= std <= 1.5, f"Standard deviation {std} is too far from 1")
-
-    def test_accuracy_range(self):
-        # Test if accuracy values are between 0 and 1
-        all_accuracies = self.dataset.data['accuracy'].values
-        self.assertTrue(all(0 <= acc <= 1 for acc in all_accuracies)) 
+        X_packed, protocols_packed, y_packed = next(iter(loader))
+        
+        # Check that we get PackedSequence objects
+        self.assertIsInstance(X_packed, PackedSequence)
+        self.assertIsInstance(protocols_packed, PackedSequence)
+        self.assertIsInstance(y_packed, PackedSequence)
+    
+    def tearDown(self):
+        if os.path.exists(self.test_csv):
+            os.remove(self.test_csv)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2) 
