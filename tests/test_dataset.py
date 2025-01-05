@@ -9,6 +9,10 @@ from src.data.dataset import ReadingScoreDataset
 
 class TestReadingScoreDataset(unittest.TestCase):
     def setUp(self):
+        self.temp_files = []
+        # Create test files and track them
+        self.test_csv = self._create_temp_file('test_data.csv')
+        self.student_csv = self._create_temp_file('student_data.csv')
         # Create a small test dataset for reading scores
         test_data = {
             'student_id': [1, 1, 1, 2, 2, 3],  # Added student 3 with no matching data
@@ -26,12 +30,18 @@ class TestReadingScoreDataset(unittest.TestCase):
             'school_name': ['Test School', 'Test School']
         }
         
-        self.test_csv = 'test_data.csv'
-        self.student_csv = 'student_data.csv'
         pd.DataFrame(test_data).to_csv(self.test_csv, index=False)
         pd.DataFrame(student_data).to_csv(self.student_csv, index=False)
         
         self.dataset = ReadingScoreDataset(self.test_csv, self.student_csv)
+    
+    def _create_temp_file(self, filename):
+        """Create a temporary file with a unique name"""
+        import tempfile
+        fd, path = tempfile.mkstemp(prefix=filename)
+        os.close(fd)
+        self.temp_files.append(path)
+        return path
     
     def test_dataset_loading(self):
         """Test basic dataset loading and inner join behavior"""
@@ -110,10 +120,13 @@ class TestReadingScoreDataset(unittest.TestCase):
         os.remove(temp_student)
     
     def tearDown(self):
-        if os.path.exists(self.test_csv):
-            os.remove(self.test_csv)
-        if os.path.exists(self.student_csv):
-            os.remove(self.student_csv)
+        """Clean up all temporary files"""
+        for file_path in self.temp_files:
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except OSError:
+                pass
 
 if __name__ == '__main__':
     unittest.main(verbosity=2) 

@@ -20,10 +20,12 @@ def save_parameters(model, save_dir='model_params', final_loss=None):
         params = {
             'beta_protocol': model.beta_protocol.item(),
             'beta_time': model.beta_time.item(),
-            'b': model.b.item(),
-            'final_loss': final_loss,
-            'timestamp': timestamp
+            'b': model.b.item()
         }
+        # Only add final_loss if it's not None
+        if final_loss is not None:
+            params['final_loss'] = final_loss
+        params['timestamp'] = timestamp
     
     # Save to file
     filename = os.path.join(save_dir, f'model_params_{timestamp}.json')
@@ -34,20 +36,7 @@ def save_parameters(model, save_dir='model_params', final_loss=None):
     return filename
 
 def load_parameters(model, param_file):
-    """
-    Load parameters from a JSON file with validation.
-    
-    Args:
-        model: AsymptoticModel instance
-        param_file: Path to parameter JSON file
-    
-    Returns:
-        model with loaded parameters
-    
-    Raises:
-        KeyError: If required parameters are missing
-        ValueError: If parameter values are invalid
-    """
+    """Load parameters from a JSON file with validation"""
     with open(param_file, 'r') as f:
         params = json.load(f)
     
@@ -58,7 +47,8 @@ def load_parameters(model, param_file):
             raise KeyError(f"Missing required parameter: {param}")
     
     # Validate parameter values
-    for param, value in params.items():
+    for param in required_params:  # Only validate required parameters
+        value = params[param]
         try:
             float_value = float(value)
         except (TypeError, ValueError):
@@ -93,11 +83,15 @@ def train_model(data_path, student_data_path, num_epochs=20, init_params=None,
         return None
 
     # Split dataset indices into train and validation
+    # Ensure at least one validation sample
     indices = list(range(len(dataset)))
     np.random.shuffle(indices)
-    split = int(np.floor(0.2 * len(dataset)))  # 20% for validation
+    split = max(1, int(np.floor(0.2 * len(dataset))))
     train_indices = indices[split:]
     val_indices = indices[:split]
+    
+    print(f"Training samples: {len(train_indices)}")
+    print(f"Validation samples: {len(val_indices)}")
 
     model = AsymptoticModel()
     
@@ -141,7 +135,7 @@ def train_model(data_path, student_data_path, num_epochs=20, init_params=None,
         # Validation phase
         model.eval()
         val_loss = 0
-        num_val = 0
+        num_val = len(val_indices)  # We know this is at least 1
         
         with torch.no_grad():
             for i in val_indices:
@@ -149,7 +143,6 @@ def train_model(data_path, student_data_path, num_epochs=20, init_params=None,
                 predictions = model(X)
                 loss = criterion(predictions, y)
                 val_loss += loss.item()
-                num_val += 1
         
         avg_val_loss = val_loss / num_val
         
