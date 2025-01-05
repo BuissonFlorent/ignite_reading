@@ -9,12 +9,8 @@ class AsymptoticFunctions:
             x: Input tensor of time points
             A: Amplitude parameter (must be positive)
             k: Rate parameter (must be positive)
-            b: Baseline parameter
-            
-        Returns:
-            Tensor of same shape as input
+            b: Baseline parameter (initial performance)
         """
-        # Parameter validation
         if A <= 0:
             raise ValueError("Amplitude parameter A must be positive")
         if k <= 0:
