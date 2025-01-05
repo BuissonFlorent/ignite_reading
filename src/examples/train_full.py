@@ -145,21 +145,17 @@ def plot_predictions(model, dataset, save_dir='results'):
     plt.close()
 
 if __name__ == "__main__":
-    dataset_path = 'raw_test_data.csv'
+    # Use the same paths as in the example
+    dataset = ReadingScoreDataset('raw_test_data.csv', 'raw_student_data.csv')
     
-    print(f"Loading dataset from: {dataset_path}")
-    model, train_losses = train_model(
-        dataset_path,
-        num_epochs=20,
-        patience=5,      # Stop if no improvement for 5 epochs
-        min_delta=1e-4   # Minimum improvement threshold
-    )
+    print(f"Loading dataset...")
+    model, train_losses = train_model(dataset, num_epochs=20, patience=5, min_delta=1e-4)
     
     if model is not None:
         print("\nTraining completed. Saving results...")
         save_results(model, train_losses)
         
-        dataset = ReadingScoreDataset(dataset_path)
+        # Plot predictions
         plot_predictions(model, dataset)
         
         print("\nResults saved in 'results' directory") 

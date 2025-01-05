@@ -116,8 +116,8 @@ if __name__ == "__main__":
         # Load the most recent model
         model = load_last_model()
         
-        # Load dataset
-        dataset = ReadingScoreDataset('raw_test_data.csv')
+        # Load dataset with both data files
+        dataset = ReadingScoreDataset('raw_test_data.csv', 'raw_student_data.csv')
         
         # Plot random student trajectory
         student_id = plot_student_trajectory(model, dataset, min_tests=10)

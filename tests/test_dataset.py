@@ -5,26 +5,41 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from torch.utils.data import DataLoader
 from src.data.dataset import ReadingScoreDataset
 
 class TestReadingScoreDataset(unittest.TestCase):
     def setUp(self):
-        # Create a small test dataset
-        data = {
+        # Create a small test dataset for reading scores
+        test_data = {
             'student_id': [1, 1, 1, 2, 2],
             'test_time': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-01', '2023-01-02'],
             'protocol': [1, 1, 2, 1, 2],
             'accuracy': [0.5, 0.6, 0.8, 0.4, 0.7]
         }
+        
+        # Create a small test dataset for student info
+        student_data = {
+            'student_id': [1, 2],
+            'program_start_date': ['2023-01-01', '2023-01-01'],
+            'grade_level': ['3rd', '4th'],
+            'school_name': ['Test School', 'Test School']
+        }
+        
         self.test_csv = 'test_data.csv'
-        pd.DataFrame(data).to_csv(self.test_csv, index=False)
-        self.dataset = ReadingScoreDataset(self.test_csv)
+        self.student_csv = 'student_data.csv'
+        pd.DataFrame(test_data).to_csv(self.test_csv, index=False)
+        pd.DataFrame(student_data).to_csv(self.student_csv, index=False)
+        
+        self.dataset = ReadingScoreDataset(self.test_csv, self.student_csv)
     
     def test_dataset_loading(self):
         """Test basic dataset loading"""
         self.assertIsInstance(self.dataset.data, pd.DataFrame)
         self.assertEqual(len(self.dataset.student_ids), 2)  # We have 2 students
+        
+        # Check that program_start_date was added
+        self.assertIn('program_start_date', self.dataset.data.columns)
+        self.assertIn('days_since_start', self.dataset.data.columns)
     
     def test_dataset_getitem(self):
         """Test that __getitem__ returns correct structure"""
@@ -52,9 +67,16 @@ class TestReadingScoreDataset(unittest.TestCase):
         self.assertTrue(torch.all(X >= 1))  # Protocols start at 1
         self.assertTrue(torch.all(y >= 0) and torch.all(y <= 1))  # Accuracy between 0 and 1
     
+    def test_days_since_start(self):
+        """Test that days_since_start is calculated correctly"""
+        student_data = self.dataset.get_student_data(1)  # Get first student
+        self.assertTrue(all(student_data['days_since_start'] >= 0))  # All days should be non-negative
+    
     def tearDown(self):
         if os.path.exists(self.test_csv):
             os.remove(self.test_csv)
+        if os.path.exists(self.student_csv):
+            os.remove(self.student_csv)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2) 

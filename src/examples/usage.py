@@ -6,13 +6,10 @@ from src.data.dataset import ReadingScoreDataset
 from src.data.student import Student
 from torch.utils.data import DataLoader
 
-# Create dataset and loader
-dataset = ReadingScoreDataset('raw_test_data.csv')
-loader = DataLoader(
-    dataset,
-    batch_size=32,
-    shuffle=True,
-    collate_fn=dataset.collate_fn
+# Create dataset with both data sources
+dataset = ReadingScoreDataset(
+    test_data_path='raw_test_data.csv',
+    student_data_path='raw_student_data.csv'
 )
 
 # Training loop example

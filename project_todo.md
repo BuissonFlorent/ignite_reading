@@ -19,6 +19,7 @@
 - [x] Create data handling classes
   - [x] Implement ReadingScoreDataset class
   - [x] Add basic data preprocessing
+  - [x] Add student metadata integration
 - [x] Set up gradient descent framework
   - [x] Choose automatic differentiation library (PyTorch)
   - [x] Create basic model class
