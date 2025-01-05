@@ -94,18 +94,54 @@ class ReadingScoreDataset(Dataset):
             raise ValueError("Found negative days since start - check date ordering")
     
     def __getitem__(self, idx):
-        """Get a single sequence"""
-        if idx < 0 or idx >= len(self.data):
-            raise IndexError("Index out of bounds")
-            
+        """Get single sequence"""
         row = self.data.iloc[idx]
         X = torch.tensor([[row['protocol'], row['days_since_start']]], dtype=torch.float32)
         y = torch.tensor([row['accuracy']], dtype=torch.float32)
         return X, y
     
-    def __len__(self):
-        return len(self.data)
+    def get_student_tensor(self, student_id):
+        """Get all sequences for a student"""
+        student_data = self.data[self.data['student_id'] == student_id]
+        X = torch.tensor([
+            [row['protocol'], row['days_since_start']] 
+            for _, row in student_data.iterrows()
+        ], dtype=torch.float32)
+        y = torch.tensor(student_data['accuracy'].values, dtype=torch.float32)
+        return X, y
     
+    def get_student_data(self, student_id: int) -> pd.DataFrame:
+        """Get all data for a specific student."""
+        print(f"\nDebugging get_student_data:")
+        print(f"Input student_id type: {type(student_id)}")
+        print(f"DataFrame student_id type: {self.data['student_id'].dtype}")
+        print(f"DataFrame student_id values:\n{self.data['student_id']}")
+        
+        student_data = self.data[self.data['student_id'] == student_id]
+        print(f"Matched rows: {len(student_data)}")
+        
+        if len(student_data) == 0:
+            raise ValueError(f"No data found for student_id {student_id}")
+        return student_data.sort_values('test_time').reset_index(drop=True)
+    
+    def get_sequence(self, idx: int) -> pd.DataFrame:
+        """Get data for a specific sequence by index.
+        
+        Args:
+            idx: The sequence index
+            
+        Returns:
+            DataFrame containing the single sequence
+            
+        Raises:
+            IndexError: If idx is out of bounds
+        """
+        if idx < 0 or idx >= len(self.data):
+            raise IndexError(f"Index {idx} is out of bounds")
+        return self.data.iloc[[idx]]
+    
+    def __len__(self):
+        return len(self.data)    
     def get_student_data(self, idx):
         """Get student data for a specific sequence index"""
         if idx < 0 or idx >= len(self.data):

@@ -1,0 +1,123 @@
+{
+  "timestamp": "2025-01-05T16:45:32.490311",
+  "modules": {
+    "src.__init__": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\src\\__init__.py",
+    "tests.run_tests": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\run_tests.py",
+    "tests.test_asymptotic": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\test_asymptotic.py",
+    "tests.test_asymptotic_model": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\test_asymptotic_model.py",
+    "tests.test_dataset": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\test_dataset.py",
+    "tests.test_dataset_student": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\test_dataset_student.py",
+    "tests.test_learning_curves": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\test_learning_curves.py",
+    "tests.test_parameter_handling": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\test_parameter_handling.py",
+    "tests.test_training": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\test_training.py",
+    "tests.test_train_full": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\test_train_full.py",
+    "tests.test_usage": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\test_usage.py",
+    "tests.test_visualization": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\test_visualization.py",
+    "tests.test_visualize_student": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\test_visualize_student.py",
+    "tests.__init__": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\__init__.py",
+    "tools.dependency_tracker": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tools\\dependency_tracker.py",
+    "src.data.dataset": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\src\\data\\dataset.py",
+    "src.data.student": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\src\\data\\student.py",
+    "src.data.__init__": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\src\\data\\__init__.py",
+    "src.examples.train_full": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\src\\examples\\train_full.py",
+    "src.examples.train_simple": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\src\\examples\\train_simple.py",
+    "src.examples.usage": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\src\\examples\\usage.py",
+    "src.examples.visualize_results": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\src\\examples\\visualize_results.py",
+    "src.examples.visualize_student": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\src\\examples\\visualize_student.py",
+    "src.examples.__init__": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\src\\examples\\__init__.py",
+    "src.model.asymptotic": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\src\\model\\asymptotic.py",
+    "src.model.asymptotic_model": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\src\\model\\asymptotic_model.py",
+    "src.model.__init__": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\src\\model\\__init__.py",
+    "src.visualization.learning_curves": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\src\\visualization\\learning_curves.py"
+  },
+  "dependencies": {
+    "src.__init__": [],
+    "tests.run_tests": [],
+    "tests.test_asymptotic": [
+      "src.model.asymptotic"
+    ],
+    "tests.test_asymptotic_model": [
+      "src.model.asymptotic_model"
+    ],
+    "tests.test_dataset": [
+      "src.data.dataset"
+    ],
+    "tests.test_dataset_student": [
+      "src.data.dataset"
+    ],
+    "tests.test_learning_curves": [
+      "src.data.dataset",
+      "src.model.asymptotic_model"
+    ],
+    "tests.test_parameter_handling": [
+      "src.model.asymptotic_model",
+      "src.examples.train_simple",
+      "src.examples.train_simple"
+    ],
+    "tests.test_training": [
+      "src.examples.train_simple",
+      "src.data.dataset"
+    ],
+    "tests.test_train_full": [
+      "src.examples.train_full",
+      "src.examples.train_simple",
+      "src.model.asymptotic_model",
+      "src.examples.train_full",
+      "src.data.dataset"
+    ],
+    "tests.test_usage": [
+      "src.data.dataset"
+    ],
+    "tests.test_visualization": [
+      "src.data.dataset",
+      "src.model.asymptotic_model",
+      "src.examples.visualize_student"
+    ],
+    "tests.test_visualize_student": [
+      "src.data.dataset",
+      "src.model.asymptotic_model",
+      "src.examples.visualize_student",
+      "src.examples.visualize_student",
+      "src.examples.visualize_student",
+      "src.examples.visualize_student"
+    ],
+    "tests.__init__": [],
+    "tools.dependency_tracker": [],
+    "src.data.dataset": [],
+    "src.data.student": [],
+    "src.data.__init__": [],
+    "src.examples.train_full": [
+      "src.data.dataset",
+      "src.model.asymptotic_model",
+      "src.examples.train_simple",
+      "src.examples.train_simple",
+      "src.visualization.learning_curves"
+    ],
+    "src.examples.train_simple": [
+      "src.data.dataset",
+      "src.model.asymptotic_model"
+    ],
+    "src.examples.usage": [
+      "src.data.dataset"
+    ],
+    "src.examples.visualize_results": [
+      "src.data.dataset",
+      "src.model.asymptotic_model",
+      "src.examples.train_simple",
+      "src.visualization.learning_curves"
+    ],
+    "src.examples.visualize_student": [
+      "src.data.dataset",
+      "src.model.asymptotic_model"
+    ],
+    "src.examples.__init__": [],
+    "src.model.asymptotic": [],
+    "src.model.asymptotic_model": [],
+    "src.model.__init__": [],
+    "src.visualization.learning_curves": [
+      "src.data.dataset",
+      "src.model.asymptotic_model",
+      "src.examples.train_simple"
+    ]
+  }
+}
