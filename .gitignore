@@ -37,4 +37,7 @@ ENV/
 .vscode/
 *.swp
 *.swo
-.DS_Store 
+.DS_Store
+
+# Results and data
+results/ 
