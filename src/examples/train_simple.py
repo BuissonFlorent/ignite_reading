@@ -1,145 +1,206 @@
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))  # Add project root to path
+import json
+from datetime import datetime
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 import torch
 import torch.nn as nn
-import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
-from torch.utils.data import DataLoader
 from src.data.dataset import ReadingScoreDataset
 from src.model.asymptotic_model import AsymptoticModel
 
-def create_sample_data(filepath):
-    """Create a sample dataset for testing"""
-    # Ensure we're not overwriting the main data file
-    if os.path.basename(filepath) == 'raw_test_data.csv':
-        raise ValueError("Cannot overwrite main data file 'raw_test_data.csv'")
+def save_parameters(model, save_dir='model_params', final_loss=None):
+    """Save model parameters to a JSON file"""
+    os.makedirs(save_dir, exist_ok=True)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     
-    data = {
-        'student_id': [1, 1, 1, 2, 2, 2, 3, 3, 3, 3],
-        'test_time': [
-            '2023-01-01', '2023-01-02', '2023-01-03',
-            '2023-01-01', '2023-01-02', '2023-01-03',
-            '2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04'
-        ],
-        'protocol': [1, 2, 3, 1, 2, 3, 1, 2, 3, 4],
-        'accuracy': [0.5, 0.7, 0.8, 0.4, 0.6, 0.7, 0.3, 0.5, 0.7, 0.8]
-    }
+    # Get parameters as dictionary
+    with torch.no_grad():
+        params = {
+            'beta_protocol': model.beta_protocol.item(),
+            'beta_time': model.beta_time.item(),
+            'b': model.b.item(),
+            'final_loss': final_loss,
+            'timestamp': timestamp
+        }
     
-    # Create directory if it doesn't exist
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    # Save to file
+    filename = os.path.join(save_dir, f'model_params_{timestamp}.json')
+    with open(filename, 'w') as f:
+        json.dump(params, f, indent=4)
     
-    # Save to CSV
-    pd.DataFrame(data).to_csv(filepath, index=False)
+    print(f"Saved parameters to {filename}")
+    return filename
 
-def train_model(csv_path, num_epochs=100):
-    # Ensure we're not modifying the main data file
-    if os.path.basename(csv_path) == 'raw_test_data.csv':
-        raise ValueError("Cannot use main data file 'raw_test_data.csv' for training examples")
+def load_parameters(model, param_file):
+    """
+    Load parameters from a JSON file with validation.
     
-    # Create dataset
-    dataset = ReadingScoreDataset(csv_path)
+    Args:
+        model: AsymptoticModel instance
+        param_file: Path to parameter JSON file
     
-    # Initialize model
+    Returns:
+        model with loaded parameters
+    
+    Raises:
+        KeyError: If required parameters are missing
+        ValueError: If parameter values are invalid
+    """
+    with open(param_file, 'r') as f:
+        params = json.load(f)
+    
+    # Check for required parameters
+    required_params = ['beta_protocol', 'beta_time', 'b']
+    for param in required_params:
+        if param not in params:
+            raise KeyError(f"Missing required parameter: {param}")
+    
+    # Validate parameter values
+    for param, value in params.items():
+        try:
+            float_value = float(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"Invalid value for {param}: {value}")
+    
+    # Load validated parameters
+    with torch.no_grad():
+        model.beta_protocol.data = torch.tensor([float(params['beta_protocol'])])
+        model.beta_time.data = torch.tensor([float(params['beta_time'])])
+        model.b.data = torch.tensor([float(params['b'])])
+    
+    print(f"Loaded parameters from {param_file}")
+    return model
+
+def train_model(data_path, student_data_path, num_epochs=20, init_params=None, 
+                patience=5, min_delta=1e-4):
+    """
+    Train model with early stopping.
+    
+    Args:
+        data_path: Path to raw_test_data.csv
+        student_data_path: Path to raw_student_data.csv
+        num_epochs: Maximum number of training epochs
+        init_params: Optional path to initial parameter values
+        patience: Number of epochs to wait for improvement before stopping
+        min_delta: Minimum change in loss to qualify as an improvement
+    """
+    try:
+        dataset = ReadingScoreDataset(data_path, student_data_path)
+    except Exception as e:
+        print(f"Error loading dataset: {e}")
+        return None
+
+    # Split dataset indices into train and validation
+    indices = list(range(len(dataset)))
+    np.random.shuffle(indices)
+    split = int(np.floor(0.2 * len(dataset)))  # 20% for validation
+    train_indices = indices[split:]
+    val_indices = indices[:split]
+
     model = AsymptoticModel()
     
-    # Define loss function and optimizer
-    criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    # Load initial parameters if provided
+    if init_params and os.path.exists(init_params):
+        model = load_parameters(model, init_params)
     
-    # Training loop
+    criterion = nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+
+    print(f"\nTraining for up to {num_epochs} epochs...")
+    print("Initial model parameters:")
+    for name, param in model.named_parameters():
+        print(f"{name}: {param.data}")
+    
+    # Early stopping setup
+    best_val_loss = float('inf')
+    best_model_state = None
+    patience_counter = 0
+    
     for epoch in range(num_epochs):
-        epoch_loss = 0.0
-        num_sequences = 0
+        # Training phase
+        model.train()
+        train_loss = 0
+        num_train = 0
         
-        # Iterate over all students in the dataset
-        for i in range(len(dataset)):
-            # Get student data (protocol numbers and accuracy values)
-            protocols, accuracies = dataset[i]
+        for i in train_indices:
+            X, y = dataset[i]
+            predictions = model(X)
+            loss = criterion(predictions, y)
             
-            # Forward pass
-            predictions = model(protocols)
-            loss = criterion(predictions, accuracies)
-            
-            # Backward pass and optimize
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             
-            # Accumulate loss
-            epoch_loss += loss.item()
-            num_sequences += 1
+            train_loss += loss.item()
+            num_train += 1
         
-        # Print progress every 10 epochs
-        if (epoch + 1) % 10 == 0:
-            avg_loss = epoch_loss / num_sequences
-            print(f'Epoch [{epoch+1}/{num_epochs}], Average Loss: {avg_loss:.4f}')
+        avg_train_loss = train_loss / num_train
+        
+        # Validation phase
+        model.eval()
+        val_loss = 0
+        num_val = 0
+        
+        with torch.no_grad():
+            for i in val_indices:
+                X, y = dataset[i]
+                predictions = model(X)
+                loss = criterion(predictions, y)
+                val_loss += loss.item()
+                num_val += 1
+        
+        avg_val_loss = val_loss / num_val
+        
+        # Print progress
+        if (epoch + 1) % 5 == 0:
+            print(f'\nEpoch [{epoch+1}/{num_epochs}]')
+            print(f'Train Loss: {avg_train_loss:.4f}')
+            print(f'Validation Loss: {avg_val_loss:.4f}')
+            print("Current model parameters:")
+            for name, param in model.named_parameters():
+                print(f"{name}: {param.data}")
+        
+        # Early stopping check
+        if avg_val_loss < best_val_loss - min_delta:
+            best_val_loss = avg_val_loss
+            best_model_state = model.state_dict().copy()
+            patience_counter = 0
+        else:
+            patience_counter += 1
+            
+        if patience_counter >= patience:
+            print(f'\nEarly stopping triggered after {epoch + 1} epochs')
+            break
     
-    return model
-
-def plot_results(model, dataset):
-    """Plot the trained model's predictions against actual data"""
-    plt.figure(figsize=(10, 6))
+    # Restore best model
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
     
-    # Get all protocol numbers and accuracies from dataset
-    all_protocols = []
-    all_accuracies = []
-    for i in range(len(dataset)):
-        protocols, accuracies = dataset[i]
-        all_protocols.extend(protocols.numpy())
-        all_accuracies.extend(accuracies.numpy())
-    
-    # Plot actual data points
-    plt.scatter(all_protocols, all_accuracies, 
-               alpha=0.5, label='Actual Data', 
-               color='blue')
-    
-    # Generate predictions for integer protocol numbers
-    with torch.no_grad():
-        x = torch.arange(1, int(max(all_protocols)) + 1, dtype=torch.float)
-        y = model(x)
-        plt.plot(x.numpy(), y.numpy(), 
-                'r-', label='Model Predictions', 
-                linewidth=2)
-    
-    plt.xlabel('Protocol Number')
-    plt.ylabel('Accuracy')
-    plt.title('Reading Accuracy vs Protocol Number')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    
-    # Set x-axis to show integer ticks only
-    plt.xticks(np.arange(1, int(max(all_protocols)) + 1))
-    
-    # Save plot
-    plt.savefig('data/training_results.png')
-    plt.close()
+    return model, best_val_loss
 
 if __name__ == "__main__":
-    # Create and use sample data
-    data_path = 'data/sample_training_data.csv'
-    create_sample_data(data_path)
+    data_path = 'raw_test_data.csv'
+    student_data_path = 'raw_student_data.csv'
     
-    try:
-        # Train model
-        model = train_model(data_path)
+    # Look for most recent parameter file
+    param_dir = 'model_params'
+    if os.path.exists(param_dir):
+        param_files = sorted([f for f in os.listdir(param_dir) if f.startswith('model_params_')])
+        init_params = os.path.join(param_dir, param_files[-1]) if param_files else None
+    else:
+        init_params = None
+    
+    print("Starting training process...")
+    model, final_loss = train_model(data_path, student_data_path, init_params=init_params)
+    
+    if model is not None:
+        print("\nTraining completed.")
+        print(f"Best validation loss: {final_loss:.4f}")
+        print("Final model parameters:")
+        for name, param in model.named_parameters():
+            print(f"{name}: {param.data}")
         
-        # Print final parameters
-        with torch.no_grad():
-            k = torch.exp(model.k)
-            b = torch.sigmoid(model.b)
-            print(f"\nFinal Parameters:")
-            print(f"Learning rate (k): {k.item():.4f}")
-            print(f"Initial level (b): {b.item():.4f}")
-        
-        # Create visualization
-        dataset = ReadingScoreDataset(data_path)
-        plot_results(model, dataset)
-        print(f"\nPlot saved as 'data/training_results.png'")
-        
-    finally:
-        # Clean up sample data file
-        if os.path.exists(data_path):
-            os.remove(data_path) 
+        # Save final parameters with loss
+        save_parameters(model, final_loss=final_loss) 

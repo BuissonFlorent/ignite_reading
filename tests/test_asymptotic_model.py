@@ -11,9 +11,9 @@ class TestAsymptoticModel(unittest.TestCase):
         self.model = AsymptoticModel()
         
         # Create sample input with both protocol and days
-        protocols = torch.FloatTensor([1, 1, 2, 3, 4])
-        days = torch.FloatTensor([0, 10, 20, 30, 40])
-        self.X = torch.stack([protocols, days], dim=1)
+        self.protocols = torch.FloatTensor([1, 2, 3, 4, 5])
+        self.days = torch.FloatTensor([0, 10, 20, 30, 40])
+        self.X = torch.stack([self.protocols, self.days], dim=1)
         
         # Set random seed for reproducibility
         torch.manual_seed(42)
@@ -34,39 +34,60 @@ class TestAsymptoticModel(unittest.TestCase):
         # Check that predictions are between 0 and 1
         self.assertTrue(torch.all(y >= 0) and torch.all(y <= 1))
     
-    def test_parameter_constraints(self):
-        """Test if parameters respect constraints"""
+    def test_parameter_effects(self):
+        """Test how different parameter values affect predictions"""
+        # Test with different beta_protocol values
         with torch.no_grad():
-            # Get transformed parameters
-            b = torch.sigmoid(self.model.b)
-            
-            # Check constraints
-            self.assertTrue(torch.all(b >= 0) and torch.all(b <= 1))  # Baseline between 0 and 1
+            self.model.beta_protocol.data = torch.tensor([1.0])
+            y1 = self.model(self.X)
+            self.model.beta_protocol.data = torch.tensor([0.1])
+            y2 = self.model(self.X)
+        
+        # Higher beta_protocol should lead to faster learning
+        self.assertTrue(torch.all(y1 >= y2))
+        
+        # Test with different beta_time values
+        with torch.no_grad():
+            self.model.beta_time.data = torch.tensor([0.1])
+            y1 = self.model(self.X)
+            self.model.beta_time.data = torch.tensor([0.0])
+            y2 = self.model(self.X)
+        
+        # Positive beta_time should lead to faster learning over time
+        self.assertTrue(torch.all(y1[1:] >= y2[1:]))  # Compare all but first day
     
     def test_monotonicity(self):
         """Test that predictions generally increase with protocol and time"""
-        protocols = torch.FloatTensor([1, 2, 3, 4, 5])
-        days = torch.FloatTensor([0, 10, 20, 30, 40])
-        X = torch.stack([protocols, days], dim=1)
+        y = self.model(self.X)
+        differences = y[1:] - y[:-1]
         
-        with torch.no_grad():
-            predictions = self.model(X)
-            differences = predictions[1:] - predictions[:-1]
-            # Note: We can't guarantee strict monotonicity due to interaction
-            # between protocol and time effects
-            self.assertTrue(torch.sum(differences >= 0) >= len(differences) - 1)
+        # Learning should generally improve over time
+        # Note: We allow small negative differences due to interaction effects
+        self.assertTrue(torch.sum(differences >= -1e-6) >= len(differences) - 1)
     
-    def test_upper_bound(self):
-        """Test that predictions never exceed 1.0"""
+    def test_learning_bounds(self):
+        """Test that learning stays within reasonable bounds"""
         # Test with very high values
-        protocols = torch.FloatTensor([10.0, 20.0, 50.0])
-        days = torch.FloatTensor([100.0, 200.0, 300.0])
-        X = torch.stack([protocols, days], dim=1)
+        high_protocols = torch.FloatTensor([10.0, 20.0, 50.0])
+        high_days = torch.FloatTensor([100.0, 200.0, 300.0])
+        X_high = torch.stack([high_protocols, high_days], dim=1)
         
-        with torch.no_grad():
-            predictions = self.model(X)
-            self.assertTrue(torch.all(predictions <= 1.0))
-            self.assertTrue(torch.all(predictions >= 0.0))
+        y_high = self.model(X_high)
+        
+        # Predictions should stay between 0 and 1
+        self.assertTrue(torch.all(y_high >= 0.0))
+        self.assertTrue(torch.all(y_high <= 1.0))
+        
+        # Test with very low values
+        low_protocols = torch.FloatTensor([1.0, 1.0, 1.0])
+        low_days = torch.FloatTensor([0.0, 0.0, 0.0])
+        X_low = torch.stack([low_protocols, low_days], dim=1)
+        
+        y_low = self.model(X_low)
+        
+        # Predictions should stay between 0 and 1
+        self.assertTrue(torch.all(y_low >= 0.0))
+        self.assertTrue(torch.all(y_low <= 1.0))
 
 if __name__ == '__main__':
     unittest.main(verbosity=2) 

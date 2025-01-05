@@ -36,21 +36,12 @@ def load_last_model():
     return model
 
 def plot_student_trajectory(model, dataset, min_tests=10, save_dir='results', jitter_amount=0.2):
-    """
-    Plot a random student's trajectory with at least min_tests reading tests.
-    
-    Args:
-        model: Trained AsymptoticModel
-        dataset: ReadingScoreDataset instance
-        min_tests: Minimum number of tests required
-        save_dir: Directory to save the plot
-        jitter_amount: Amount of horizontal jitter for overlapping points (increased to 0.2)
-    """
-    # Find eligible students (those with enough tests)
+    """Plot a random student's trajectory with at least min_tests reading tests."""
+    # Find eligible students
     eligible_students = []
     for i in range(len(dataset)):
-        protocols, accuracies = dataset[i]
-        if len(protocols) >= min_tests:
+        X, y = dataset[i]
+        if len(y) >= min_tests:
             eligible_students.append(i)
     
     if not eligible_students:
@@ -59,37 +50,44 @@ def plot_student_trajectory(model, dataset, min_tests=10, save_dir='results', ji
     
     # Select random student
     student_idx = np.random.choice(eligible_students)
-    protocols, accuracies = dataset[student_idx]
+    X, y = dataset[student_idx]
     student_id = dataset.student_ids[student_idx]
     
     # Create figure
     plt.figure(figsize=(12, 6))
     
     # Add small random jitter to protocol numbers for visualization
+    protocols = X[:, 0]
+    days = X[:, 1]
     jittered_protocols = protocols.numpy() + np.random.uniform(-jitter_amount, jitter_amount, size=len(protocols))
     
     # Plot actual data points with jitter
-    plt.scatter(jittered_protocols, accuracies.numpy(), 
+    plt.scatter(jittered_protocols, y.numpy(), 
                color='blue', alpha=0.7, s=100,
                label='Actual Scores')
     
     # Connect actual scores with dotted line in chronological order
-    plt.plot(jittered_protocols, accuracies.numpy(), 
+    plt.plot(jittered_protocols, y.numpy(), 
             'b:', alpha=0.5, linewidth=1.5,
             label='Test Sequence')
     
-    # Create smooth curve for model predictions
-    x_smooth = torch.linspace(
-        float(protocols.min()), 
-        float(protocols.max()), 
-        100
-    )
+    # Create smooth prediction curve
+    # Generate a grid of points for smooth curve
+    min_protocol = float(protocols.min())
+    max_protocol = float(protocols.max())
+    min_days = float(days.min())
+    max_days = float(days.max())
+    
+    # Create smooth curve using protocol numbers
+    x_smooth = torch.linspace(min_protocol, max_protocol, 100)
+    days_interp = torch.tensor(np.interp(x_smooth, protocols, days))
+    X_smooth = torch.stack([x_smooth, days_interp], dim=1)
+    
     with torch.no_grad():
-        X = torch.tensor(student_data[['protocol', 'days_since_start']].values, dtype=torch.float)
-        predictions = model(X)
+        y_smooth = model(X_smooth)
     
     # Plot smooth prediction curve
-    plt.plot(x_smooth.numpy(), predictions.numpy(), 
+    plt.plot(x_smooth.numpy(), y_smooth.numpy(), 
             'r-', linewidth=2, label='Model Predictions')
     
     plt.xlabel('Protocol Number')
@@ -99,7 +97,7 @@ def plot_student_trajectory(model, dataset, min_tests=10, save_dir='results', ji
     plt.grid(True, alpha=0.3)
     
     # Set integer ticks for protocols
-    plt.xticks(np.arange(int(min(protocols)), int(max(protocols)) + 1))
+    plt.xticks(np.arange(int(min_protocol), int(max_protocol) + 1))
     
     # Format y-axis to show 2 decimal places
     plt.gca().yaxis.set_major_formatter(plt.FormatStrFormatter('%.2f'))

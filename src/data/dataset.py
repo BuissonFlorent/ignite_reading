@@ -15,19 +15,31 @@ class ReadingScoreDataset(Dataset):
         self.test_data = pd.read_csv(test_data_path)
         self.student_data = pd.read_csv(student_data_path)
         
-        # Convert dates to datetime
-        self.student_data['program_start_date'] = pd.to_datetime(self.student_data['program_start_date'])
-        self.test_data['test_time'] = pd.to_datetime(self.test_data['test_time'])
+        # Convert dates to datetime with flexible parsing
+        self.student_data['program_start_date'] = pd.to_datetime(
+            self.student_data['program_start_date'],
+            format='mixed'
+        )
+        self.test_data['test_time'] = pd.to_datetime(
+            self.test_data['test_time'],
+            format='mixed'
+        )
         
-        # Merge datasets
+        # Merge datasets with inner join to keep only students with complete data
         self.data = self.test_data.merge(
             self.student_data[['student_id', 'program_start_date']],
             on='student_id',
-            how='left'
+            how='inner'
         )
+        
+        # Print merge info
+        print(f"Original test records: {len(self.test_data)}")
+        print(f"Students with data: {len(self.student_data)}")
+        print(f"Records after merge: {len(self.data)}")
         
         # Create student index mapping
         self.student_ids = self.data['student_id'].unique()
+        print(f"Number of students in final dataset: {len(self.student_ids)}")
         
         # Preprocessing
         self._preprocess_data()
