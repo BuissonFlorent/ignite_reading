@@ -1,10 +1,4 @@
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
 from src.data.dataset import ReadingScoreDataset
-from src.data.student import Student
-from torch.utils.data import DataLoader
 
 # Create dataset with both data sources
 dataset = ReadingScoreDataset(
@@ -12,9 +6,13 @@ dataset = ReadingScoreDataset(
     student_data_path='raw_student_data.csv'
 )
 
-# Training loop example
-for X_packed, protocols_packed, y_packed in loader:
-    # X_packed: days since first observation (PackedSequence)
-    # protocols_packed: protocol levels (PackedSequence)
-    # y_packed: accuracy scores (PackedSequence)
-    pass 
+# Example: Get data for first student
+X, y = dataset[0]
+print(f"First student has {len(X)} reading tests")
+print(f"Protocol numbers: {X}")
+print(f"Accuracy scores: {y}")
+
+# Example: Iterate through all students
+for i in range(len(dataset)):
+    protocols, accuracies = dataset[i]
+    print(f"Student {i} has {len(protocols)} tests") 

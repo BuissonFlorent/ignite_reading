@@ -55,8 +55,8 @@ class ReadingScoreDataset(Dataset):
         student_id = self.student_ids[idx]
         student_data = self.get_student_data(student_id)
         
-        # Create tensors
-        X = torch.FloatTensor(student_data['protocol'].values)
+        # Create tensors including days since start
+        X = torch.tensor(student_data[['protocol', 'days_since_start']].values, dtype=torch.float)
         y = torch.FloatTensor(student_data['accuracy'].values)
         
         return X, y 

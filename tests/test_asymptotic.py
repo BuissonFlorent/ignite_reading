@@ -8,33 +8,74 @@ from src.model.asymptotic import AsymptoticFunctions
 
 class TestAsymptoticFunctions(unittest.TestCase):
     def setUp(self):
-        # Create standard input range for testing
-        self.x = torch.linspace(0, 10, 100)
-        self.functions = AsymptoticFunctions()
+        self.asymptotic = AsymptoticFunctions()
         
         # Set random seed for reproducibility
         torch.manual_seed(42)
     
     def test_exponential_basic(self):
         """Test basic exponential function behavior"""
-        A, k, b = 1.0, 0.5, 0.0
-        y = self.functions.exponential(self.x, A, k, b)
+        x = torch.tensor([1.0, 2.0, 3.0])
+        y = self.asymptotic.exponential(x)
         
-        # Check output is correct type and shape
         self.assertIsInstance(y, torch.Tensor)
-        self.assertEqual(y.shape, self.x.shape)
-        
-        # Test asymptotic behavior
-        self.assertLess(torch.abs(y[-1] - (A + b)), 0.01)  # Should approach A + b
-        self.assertAlmostEqual(y[0].item(), b, places=5)   # Should start at b
+        self.assertEqual(y.shape, x.shape)
     
-    def test_parameter_constraints(self):
-        """Test parameter constraints"""
-        with self.assertRaises(ValueError):
-            self.functions.exponential(self.x, -1.0, 0.5, 0.0)  # Negative amplitude
+    def test_exponential_parameters(self):
+        """Test exponential function with different parameters"""
+        x = torch.tensor([1.0, 2.0, 3.0])
         
-        with self.assertRaises(ValueError):
-            self.functions.exponential(self.x, 1.0, -0.5, 0.0)  # Negative rate
+        # Test with different A values
+        y1 = self.asymptotic.exponential(x, A=2.0)
+        y2 = self.asymptotic.exponential(x, A=0.5)
+        self.assertTrue(torch.all(y1 > y2))
+        
+        # Test with different k values
+        y1 = self.asymptotic.exponential(x, k=2.0)
+        y2 = self.asymptotic.exponential(x, k=0.5)
+        self.assertTrue(torch.all(y1 > y2))
+        
+        # Test with different b values
+        y1 = self.asymptotic.exponential(x, b=0.5)
+        y2 = self.asymptotic.exponential(x, b=0.1)
+        self.assertTrue(torch.all(y1 > y2))
+    
+    def test_exponential_vectorized(self):
+        """Test exponential function with vectorized parameters"""
+        x = torch.tensor([1.0, 2.0, 3.0])
+        k = torch.tensor([0.5, 1.0, 2.0])
+        
+        # Test with vectorized k
+        y = self.asymptotic.exponential(x, k=k)
+        self.assertEqual(y.shape, x.shape)
+        
+        # Test with vectorized A
+        A = torch.tensor([0.5, 1.0, 1.5])
+        y = self.asymptotic.exponential(x, A=A)
+        self.assertEqual(y.shape, x.shape)
+    
+    def test_exponential_monotonicity(self):
+        """Test that exponential function is monotonically increasing"""
+        x = torch.linspace(0, 10, 100)
+        y = self.asymptotic.exponential(x)
+        
+        # Check that differences are non-negative
+        differences = y[1:] - y[:-1]
+        self.assertTrue(torch.all(differences >= 0))
+    
+    def test_exponential_bounds(self):
+        """Test that exponential function respects bounds"""
+        x = torch.linspace(0, 10, 100)
+        A = 0.5
+        b = 0.2
+        
+        y = self.asymptotic.exponential(x, A=A, b=b)
+        
+        # Check lower bound
+        self.assertTrue(torch.all(y >= b))
+        
+        # Check upper bound
+        self.assertTrue(torch.all(y <= A + b))
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

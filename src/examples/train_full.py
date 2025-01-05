@@ -42,11 +42,12 @@ def train_model(dataset_path, num_epochs=20, learning_rate=0.01, patience=5, min
         epoch_loss = 0.0
         num_sequences = 0
         
-        # Iterate over all students
         for i in range(len(dataset)):
-            protocols, accuracies = dataset[i]
-            predictions = model(protocols)
-            loss = criterion(predictions, accuracies)
+            X, y = dataset[i]  # X now contains both protocol and days
+            
+            # Forward pass
+            predictions = model(X)
+            loss = criterion(predictions, y)
             
             optimizer.zero_grad()
             loss.backward()

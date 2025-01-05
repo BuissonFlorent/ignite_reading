@@ -37,7 +37,7 @@ class TestReadingScoreDataset(unittest.TestCase):
         self.assertIsInstance(self.dataset.data, pd.DataFrame)
         self.assertEqual(len(self.dataset.student_ids), 2)  # We have 2 students
         
-        # Check that program_start_date was added
+        # Check that program_start_date and days_since_start were added
         self.assertIn('program_start_date', self.dataset.data.columns)
         self.assertIn('days_since_start', self.dataset.data.columns)
     
@@ -46,31 +46,40 @@ class TestReadingScoreDataset(unittest.TestCase):
         X, y = self.dataset[0]  # Get first student
         self.assertIsInstance(X, torch.Tensor)
         self.assertIsInstance(y, torch.Tensor)
-        self.assertEqual(len(X), 3)  # First student has 3 tests
         
-        # Check that X contains protocol numbers
-        self.assertTrue(torch.all(X >= 1))  # All protocols should be >= 1
+        # Check X shape (should be 2D with protocol and days)
+        self.assertEqual(X.shape[1], 2)  # Two features
+        self.assertEqual(X.shape[0], 3)  # First student has 3 tests
+        
+        # Check that X contains valid values
+        self.assertTrue(torch.all(X[:, 0] >= 1))  # All protocols should be >= 1
+        self.assertTrue(torch.all(X[:, 1] >= 0))  # All days should be >= 0
         self.assertTrue(X.dtype == torch.float)  # Should be float tensor
     
     def test_single_student_data(self):
         """Test getting individual student data"""
         X, y = self.dataset[0]
         
-        # Check shapes match
-        self.assertEqual(X.shape, y.shape)
+        # Check shapes
+        self.assertEqual(X.shape[0], y.shape[0])  # Same number of samples
+        self.assertEqual(X.shape[1], 2)  # Two features
         
         # Check data types
         self.assertEqual(X.dtype, torch.float)
         self.assertEqual(y.dtype, torch.float)
         
         # Check value ranges
-        self.assertTrue(torch.all(X >= 1))  # Protocols start at 1
+        self.assertTrue(torch.all(X[:, 0] >= 1))  # Protocols start at 1
+        self.assertTrue(torch.all(X[:, 1] >= 0))  # Days since start >= 0
         self.assertTrue(torch.all(y >= 0) and torch.all(y <= 1))  # Accuracy between 0 and 1
     
     def test_days_since_start(self):
         """Test that days_since_start is calculated correctly"""
         student_data = self.dataset.get_student_data(1)  # Get first student
-        self.assertTrue(all(student_data['days_since_start'] >= 0))  # All days should be non-negative
+        self.assertTrue(all(student_data['days_since_start'] >= 0))
+        # Check that days increase with test_time
+        days = student_data['days_since_start'].values
+        self.assertTrue(all(days[i] <= days[i+1] for i in range(len(days)-1)))
     
     def tearDown(self):
         if os.path.exists(self.test_csv):

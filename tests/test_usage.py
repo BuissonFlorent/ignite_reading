@@ -38,8 +38,9 @@ class TestUsage(unittest.TestCase):
         self.assertIsInstance(X, torch.Tensor)
         self.assertIsInstance(y, torch.Tensor)
         
-        # Check that protocols and accuracy values match
-        self.assertEqual(X.shape, y.shape)
+        # Check shapes
+        self.assertEqual(X.shape[1], 2)  # Two features
+        self.assertEqual(X.shape[0], y.shape[0])  # Same number of samples
     
     def test_iteration(self):
         """Test that we can iterate over the dataset"""
@@ -47,6 +48,7 @@ class TestUsage(unittest.TestCase):
             X, y = self.dataset[i]
             self.assertIsInstance(X, torch.Tensor)
             self.assertIsInstance(y, torch.Tensor)
+            self.assertEqual(X.shape[1], 2)  # Two features
     
     def tearDown(self):
         if os.path.exists(self.test_csv):

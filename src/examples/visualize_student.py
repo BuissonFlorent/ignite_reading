@@ -85,10 +85,11 @@ def plot_student_trajectory(model, dataset, min_tests=10, save_dir='results', ji
         100
     )
     with torch.no_grad():
-        y_smooth = model(x_smooth)
+        X = torch.tensor(student_data[['protocol', 'days_since_start']].values, dtype=torch.float)
+        predictions = model(X)
     
     # Plot smooth prediction curve
-    plt.plot(x_smooth.numpy(), y_smooth.numpy(), 
+    plt.plot(x_smooth.numpy(), predictions.numpy(), 
             'r-', linewidth=2, label='Model Predictions')
     
     plt.xlabel('Protocol Number')
