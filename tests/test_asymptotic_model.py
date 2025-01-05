@@ -10,8 +10,8 @@ class TestAsymptoticModel(unittest.TestCase):
     def setUp(self):
         self.model = AsymptoticModel()
         
-        # Create sample data similar to what our DataLoader provides
-        self.days = torch.linspace(0, 100, 50)  # 100 days of data
+        # Create sample protocol sequence
+        self.protocols = torch.FloatTensor([1, 1, 2, 3, 4])  # Example protocol sequence
         
         # Set random seed for reproducibility
         torch.manual_seed(42)
@@ -23,10 +23,13 @@ class TestAsymptoticModel(unittest.TestCase):
         self.assertTrue(hasattr(self.model, 'b'))
     
     def test_forward_pass(self):
-        """Test basic forward pass"""
-        y = self.model(self.days)
+        """Test basic forward pass with protocol numbers"""
+        y = self.model(self.protocols)
         self.assertIsInstance(y, torch.Tensor)
-        self.assertEqual(y.shape, self.days.shape)
+        self.assertEqual(y.shape, self.protocols.shape)
+        
+        # Check that predictions are between 0 and 1
+        self.assertTrue(torch.all(y >= 0) and torch.all(y <= 1))
     
     def test_parameter_constraints(self):
         """Test if parameters respect constraints"""
@@ -35,37 +38,26 @@ class TestAsymptoticModel(unittest.TestCase):
             k = torch.exp(self.model.k)
             b = torch.sigmoid(self.model.b)
             
-            # Initial performance should be between 0 and 1
-            self.assertTrue(torch.all(b >= 0) and torch.all(b <= 1))
-            
-            # Learning rate should be positive
-            self.assertTrue(torch.all(k > 0))
-    
-    def test_learning_curve_properties(self):
-        """Test properties of the learning curve"""
-        with torch.no_grad():
-            # Test at different time points
-            t0 = torch.tensor([0.0])  # Start
-            t1 = torch.tensor([1000.0])  # Long time
-            
-            y0 = self.model(t0)
-            y1 = self.model(t1)
-            
-            # Initial value should equal transformed b parameter
-            b = torch.sigmoid(self.model.b)
-            self.assertAlmostEqual(y0.item(), b.item(), places=5)
-            
-            # Final value can reach 1.0 (perfect score achievable)
-            self.assertLessEqual(y1.item(), 1.0)
-            self.assertGreater(y1.item(), y0.item())  # Should show improvement
+            # Check constraints
+            self.assertTrue(torch.all(k > 0))  # Learning rate should be positive
+            self.assertTrue(torch.all(b >= 0) and torch.all(b <= 1))  # Baseline between 0 and 1
     
     def test_monotonicity(self):
-        """Test that predictions are monotonically increasing"""
-        times = torch.linspace(0, 100, 10)
+        """Test that predictions increase with protocol number"""
+        protocols = torch.FloatTensor([1, 2, 3, 4, 5])
         with torch.no_grad():
-            predictions = self.model(times)
+            predictions = self.model(protocols)
             differences = predictions[1:] - predictions[:-1]
             self.assertTrue(torch.all(differences >= 0))
+    
+    def test_upper_bound(self):
+        """Test that predictions never exceed 1.0"""
+        # Test with very high protocol numbers
+        high_protocols = torch.FloatTensor([10.0, 20.0, 50.0])
+        with torch.no_grad():
+            predictions = self.model(high_protocols)
+            self.assertTrue(torch.all(predictions <= 1.0))
+            self.assertTrue(torch.all(predictions >= 0.0))
 
 if __name__ == '__main__':
     unittest.main(verbosity=2) 

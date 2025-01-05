@@ -18,16 +18,22 @@
 ## Implementation
 - [x] Create data handling classes
   - [x] Implement ReadingScoreDataset class
-  - [x] Implement Student class
   - [x] Add basic data preprocessing
 - [x] Set up gradient descent framework
   - [x] Choose automatic differentiation library (PyTorch)
   - [x] Create basic model class
   - [ ] Add batch processing capability
 - [x] Build covariate handling
-  - [x] Create numeric features (protocol, lesson)
-  - [x] Add day-of-week effects
-  - [x] Process categorical variables (title)
+  - [x] Create numeric features (protocol)
+  - [ ] Add day-of-week effects
+  - [ ] Process categorical variables (title)
+
+## Training Implementation
+- [x] Basic training loop
+  - [x] Single sequence training
+  - [x] Basic visualization
+  - [ ] Batch processing with packed sequences
+  - [ ] Training on full dataset
 
 ## Data Preprocessing
 - [x] Handle scale issues
