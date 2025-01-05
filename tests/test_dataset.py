@@ -1,7 +1,10 @@
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
 import unittest
 import pandas as pd
 import torch
-from pathlib import Path
 from src.data.dataset import ReadingScoreDataset
 
 class TestReadingScoreDataset(unittest.TestCase):
@@ -54,3 +57,6 @@ class TestReadingScoreDataset(unittest.TestCase):
         # Test if accuracy values are between 0 and 1
         all_accuracies = self.dataset.data['accuracy'].values
         self.assertTrue(all(0 <= acc <= 1 for acc in all_accuracies)) 
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2) 
