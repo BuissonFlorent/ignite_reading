@@ -2,6 +2,7 @@ import unittest
 import torch
 import sys
 import os
+import tempfile
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from src.model.asymptotic_model import AsymptoticModel
@@ -17,6 +18,18 @@ class TestAsymptoticModel(unittest.TestCase):
         
         # Set random seed for reproducibility
         torch.manual_seed(42)
+        
+        """Create test parameter file"""
+        self.temp_files = []
+        self.model_dir = tempfile.mkdtemp()
+        self.temp_files.append(self.model_dir)
+        
+        # Create test parameter file with correct parameter names
+        self.param_file = os.path.join(self.model_dir, 'model_params_20230101.txt')
+        with open(self.param_file, 'w') as f:
+            f.write('beta_protocol: 1.0\n')
+            f.write('beta_time: 0.1\n')
+            f.write('b: 0.0\n')
     
     def test_model_initialization(self):
         """Test if model initializes correctly"""
@@ -88,6 +101,32 @@ class TestAsymptoticModel(unittest.TestCase):
         # Predictions should stay between 0 and 1
         self.assertTrue(torch.all(y_low >= 0.0))
         self.assertTrue(torch.all(y_low <= 1.0))
+    
+    def test_from_file(self):
+        """Test loading model from file"""
+        model = AsymptoticModel.from_file(self.param_file)
+        
+        with torch.no_grad():
+            # Check actual parameters that exist in the model
+            self.assertAlmostEqual(float(model.beta_protocol), 1.0)
+            self.assertAlmostEqual(float(model.beta_time), 0.1)
+            self.assertAlmostEqual(float(model.b), 0.0)
+    
+    def test_from_directory(self):
+        """Test loading most recent model from directory"""
+        model = AsymptoticModel.from_directory(self.model_dir)
+        self.assertIsInstance(model, AsymptoticModel)
+    
+    def tearDown(self):
+        """Clean up temporary files"""
+        for path in self.temp_files:
+            try:
+                if os.path.isdir(path):
+                    os.rmdir(path)
+                elif os.path.exists(path):
+                    os.remove(path)
+            except OSError:
+                pass
 
 if __name__ == '__main__':
     unittest.main(verbosity=2) 

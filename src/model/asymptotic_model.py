@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import os
 from .asymptotic import AsymptoticFunctions
 
 class AsymptoticModel(nn.Module):
@@ -54,4 +55,34 @@ class AsymptoticModel(nn.Module):
             A=A,
             k=k,  # Now a vector of rates
             b=b
-        ) 
+        )
+    
+    @classmethod
+    def from_file(cls, param_file):
+        """Load model from parameter file"""
+        model = cls()
+        with open(param_file, 'r') as f:
+            params = {}
+            for line in f:
+                key, value = line.strip().split(': ')
+                params[key] = float(value)
+        
+        with torch.no_grad():
+            model.beta_protocol.data = torch.tensor([params['beta_protocol']])
+            model.beta_time.data = torch.tensor([params['beta_time']])
+            model.b.data = torch.tensor([params['b']])
+        return model
+    
+    @classmethod
+    def from_directory(cls, model_dir='model_params'):
+        """Load most recent model from directory"""
+        if not os.path.exists(model_dir):
+            raise FileNotFoundError(f"Model directory not found: {model_dir}")
+        
+        param_files = [f for f in os.listdir(model_dir) 
+                      if f.startswith('model_params_')]
+        if not param_files:
+            raise FileNotFoundError(f"No parameter files found in {model_dir}")
+        
+        latest_file = max(param_files)
+        return cls.from_file(os.path.join(model_dir, latest_file)) 

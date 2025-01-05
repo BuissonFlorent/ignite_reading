@@ -9,31 +9,61 @@ from datetime import datetime
 from src.data.dataset import ReadingScoreDataset
 from src.model.asymptotic_model import AsymptoticModel
 
-def load_last_model():
-    """Load parameters from the most recent model"""
-    results_dir = 'results'
+def load_parameters_from_file(param_file):
+    """
+    Load model parameters from a specific file
     
-    # Find the most recent parameter file
-    param_files = [f for f in os.listdir(results_dir) if f.startswith('model_params_')]
-    if not param_files:
-        raise FileNotFoundError("No model parameter files found")
+    Args:
+        param_file: Path to parameter file
     
-    latest_file = max(param_files)
-    
-    # Read parameters
-    model = AsymptoticModel()
-    with open(os.path.join(results_dir, latest_file), 'r') as f:
+    Returns:
+        dict: Parameter values
+    """
+    with open(param_file, 'r') as f:
         params = {}
         for line in f:
             key, value = line.strip().split(': ')
             params[key] = float(value)
+    return params
+
+def create_model_from_parameters(params):
+    """
+    Create and initialize model with given parameters
     
-    # Set model parameters
+    Args:
+        params: Dictionary of parameter values
+    
+    Returns:
+        AsymptoticModel: Initialized model
+    """
+    model = AsymptoticModel()
     with torch.no_grad():
         model.k.data = torch.log(torch.tensor([params['learning_rate (k)']]))
         model.b.data = torch.logit(torch.tensor([params['initial_level (b)']]))
-    
     return model
+
+def load_last_model(results_dir='results'):
+    """
+    Load parameters from the most recent model file
+    
+    Args:
+        results_dir: Directory containing model parameter files
+    
+    Returns:
+        AsymptoticModel: Model with loaded parameters
+    """
+    if not os.path.exists(results_dir):
+        raise FileNotFoundError(f"Results directory not found: {results_dir}")
+    
+    param_files = [f for f in os.listdir(results_dir) if f.startswith('model_params_')]
+    if not param_files:
+        raise FileNotFoundError(f"No model parameter files found in {results_dir}")
+    
+    latest_file = max(param_files)
+    param_file = os.path.join(results_dir, latest_file)
+    
+    params = load_parameters_from_file(param_file)
+    return create_model_from_parameters(params)
 
 def plot_student_trajectory(model, dataset, min_tests=10, save_dir='results', jitter_amount=0.2):
     """Plot a random student's trajectory with at least min_tests reading tests."""
@@ -109,6 +139,23 @@ def plot_student_trajectory(model, dataset, min_tests=10, save_dir='results', ji
     
     print(f"Plotted trajectory for student {student_id}")
     return student_id
+
+def find_student_indices(dataset, student_id):
+    """
+    Find all sequence indices for a given student ID.
+    
+    Args:
+        dataset: ReadingScoreDataset instance
+        student_id: ID of the student to find
+    
+    Returns:
+        list: Indices of sequences belonging to the student
+    """
+    indices = []
+    for i in range(len(dataset)):
+        if dataset.data.iloc[i]['student_id'] == student_id:
+            indices.append(i)
+    return indices
 
 if __name__ == "__main__":
     try:
