@@ -1,3 +1,0 @@
-learning_rate (k): 0.4020
-initial_level (b): 0.0766
-final_loss: 0.0219
