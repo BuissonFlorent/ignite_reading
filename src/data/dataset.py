@@ -82,7 +82,9 @@ class ReadingScoreDataset(Dataset):
     
     def _convert_to_tensor(self, df):
         """Convert relevant columns to tensor"""
-        X = torch.FloatTensor(df[self.feature_names].values)
+        # Ensure all features are numeric
+        feature_data = df[self.feature_names].astype(float)
+        X = torch.FloatTensor(feature_data.values)
         y = torch.FloatTensor(df['accuracy'].values)
         return X, y
     
