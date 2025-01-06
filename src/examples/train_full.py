@@ -211,8 +211,4 @@ if __name__ == "__main__":
             print(f"{name}: {param.data}")
         
         # Save final parameters with loss
-        save_parameters(model, final_loss=final_loss)
-        
-        # Create and save plot
-        dataset = ReadingScoreDataset(data_path, student_data_path)
-        plot_learning_curves(dataset, model) 
+        save_parameters(model, final_loss=final_loss) 

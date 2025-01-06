@@ -83,15 +83,29 @@ class ReadingScoreDataset(Dataset):
         self._preprocess_data()
     
     def _preprocess_data(self):
-        """Preprocess data by calculating days since start for each student"""
-        # Calculate days since program start
-        self.data['days_since_start'] = (
-            self.data['test_time'] - self.data['program_start_date']
-        ).dt.total_seconds() / (24 * 3600)  # Convert to days
+        """Preprocess the raw data."""
+        # Merge test data with student data
+        self.data = pd.merge(self.test_data, self.student_data, on='student_id', how='inner')
         
-        # Validate no negative days
-        if (self.data['days_since_start'] < 0).any():
-            raise ValueError("Found negative days since start - check date ordering")
+        # Convert dates to datetime
+        self.data['test_time'] = pd.to_datetime(self.data['test_time'])
+        self.data['program_start_date'] = pd.to_datetime(self.data['program_start_date'])
+        
+        # Calculate days since start
+        self.data['days_since_start'] = (self.data['test_time'] - self.data['program_start_date']).dt.days
+        
+        # Filter out invalid sequences (lessons before start date)
+        invalid_sequences = self.data['days_since_start'] < 0
+        if invalid_sequences.any():
+            print(f"Removing {invalid_sequences.sum()} sequences with lessons before start date")
+            self.data = self.data[~invalid_sequences].copy()
+        
+        # Validate remaining data
+        if len(self.data) == 0:
+            raise ValueError("No valid sequences remain after filtering")
+        
+        # Sort by student and time
+        self.data = self.data.sort_values(['student_id', 'test_time'])
     
     def __getitem__(self, idx):
         """Get single sequence"""
@@ -111,15 +125,18 @@ class ReadingScoreDataset(Dataset):
         return X, y
     
     def get_student_data(self, student_id: int) -> pd.DataFrame:
-        """Get all data for a specific student."""
-        print(f"\nDebugging get_student_data:")
-        print(f"Input student_id type: {type(student_id)}")
-        print(f"DataFrame student_id type: {self.data['student_id'].dtype}")
-        print(f"DataFrame student_id values:\n{self.data['student_id']}")
+        """Get all data for a specific student.
         
-        student_data = self.data[self.data['student_id'] == student_id]
-        print(f"Matched rows: {len(student_data)}")
-        
+        Args:
+            student_id: The student's ID number
+            
+        Returns:
+            DataFrame containing all sequences for the student
+            
+        Raises:
+            ValueError: If student_id is not found in the dataset
+        """
+        student_data = self.data[self.data['student_id'] == student_id].copy()
         if len(student_data) == 0:
             raise ValueError(f"No data found for student_id {student_id}")
         return student_data.sort_values('test_time').reset_index(drop=True)
@@ -142,8 +159,4 @@ class ReadingScoreDataset(Dataset):
     
     def __len__(self):
         return len(self.data)    
-    def get_student_data(self, idx):
-        """Get student data for a specific sequence index"""
-        if idx < 0 or idx >= len(self.data):
-            raise IndexError("Index out of bounds")
-        return self.data.iloc[[idx]] 
+  

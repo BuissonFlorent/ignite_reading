@@ -81,6 +81,65 @@ class TestReadingScoreDataset(unittest.TestCase):
         with self.assertRaises(ValueError):
             ReadingScoreDataset(invalid_test_csv, self.student_csv)
     
+    def test_get_sequence_validates_index(self):
+        """Test that get_sequence properly validates index input"""
+        with self.assertRaises(IndexError):
+            self.dataset.get_sequence(-1)
+        
+        with self.assertRaises(IndexError):
+            self.dataset.get_sequence(len(self.dataset.data))
+    
+    def test_get_student_data_validates_id(self):
+        """Test that get_student_data properly validates student_id input"""
+        with self.assertRaises(ValueError):
+            self.dataset.get_student_data(999999)  # Non-existent student
+    
+    def test_get_student_data_returns_ordered(self):
+        """Test that get_student_data returns time-ordered sequences"""
+        student_id = 1  # Using TestData's first student
+        student_data = self.dataset.get_student_data(student_id)
+        
+        # Check if dates are ordered
+        dates = student_data['test_time'].tolist()
+        self.assertEqual(dates, sorted(dates))
+    
+    def test_get_sequence_returns_single(self):
+        """Test that get_sequence always returns exactly one row"""
+        sequence = self.dataset.get_sequence(0)
+        self.assertEqual(len(sequence), 1)
+        self.assertTrue(isinstance(sequence, pd.DataFrame))
+    
+    def test_method_definitions(self):
+        """Test for duplicate method definitions and show their locations"""
+        import inspect
+        import src.data.dataset as dataset_module
+        
+        print("\nChecking method definitions in dataset.py:")
+        
+        # Get the source code
+        source_lines = inspect.getsourcelines(dataset_module)[0]
+        
+        # Find all method definitions
+        method_locations = {}
+        for i, line in enumerate(source_lines, 1):
+            if line.strip().startswith('def '):
+                method_name = line.split('def ')[1].split('(')[0].strip()
+                if method_name in method_locations:
+                    method_locations[method_name].append(i)
+                else:
+                    method_locations[method_name] = [i]
+        
+        # Print all methods and their locations
+        for method, lines in method_locations.items():
+            print(f"Method '{method}' defined at line(s): {lines}")
+            if len(lines) > 1:
+                print(f"WARNING: '{method}' is defined multiple times!")
+        
+        # Assert no duplicates
+        duplicates = {m: l for m, l in method_locations.items() if len(l) > 1}
+        self.assertEqual(len(duplicates), 0, 
+                        f"Found duplicate method definitions: {duplicates}")
+    
     def tearDown(self):
         """Clean up temporary files"""
         for file_path in self.temp_files:
