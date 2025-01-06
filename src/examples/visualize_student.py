@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from src.data.dataset import ReadingScoreDataset
 from src.model.asymptotic_model import AsymptoticModel
+from src.visualization.student_plots import StudentTrajectoryPlot
 
 def load_parameters_from_file(param_file):
     """
@@ -84,79 +85,23 @@ def load_last_model(results_dir='results'):
     params = load_parameters_from_file(param_file)
     return create_model_from_parameters(params)
 
-def plot_student_trajectory(model, dataset, min_tests=10, save_dir='results', jitter_amount=0.2):
-    """Plot a student's trajectory with at least min_tests reading tests.
-    
-    Args:
-        model: Trained AsymptoticModel
-        dataset: ReadingScoreDataset instance
-        min_tests: Minimum number of tests required
-        save_dir: Directory to save plots
-        jitter_amount: Amount of jitter to add to visualization
-        
-    Returns:
-        int: ID of plotted student
-        
-    Raises:
-        ValueError: If no eligible students found
-    """
-    # Use dataset interface to find eligible students
+def plot_student_trajectory(model, dataset, min_tests=10, save_dir='results'):
+    """Plot a student's trajectory with at least min_tests reading tests."""
+    # Find eligible students
     eligible_students = dataset.get_students_with_min_tests(min_tests)
-    
     if not eligible_students:
         raise ValueError(f"No students found with at least {min_tests} tests")
     
     # Select random student
     student_id = np.random.choice(eligible_students)
-    
-    # Get complete student data using dataset interface
     student_data = dataset.get_student_data(student_id)
     
-    # Create visualization
-    create_student_plot(
-        student_data=student_data,
-        model=model,
-        student_id=student_id,
-        save_dir=save_dir,
-        jitter_amount=jitter_amount
-    )
+    # Create and save plot using plotter
+    plotter = StudentTrajectoryPlot(figsize=(12, 6))  # Explicit figsize
+    fig = plotter.plot_trajectory(student_data, model, student_id)
+    plotter.save_plot(fig, student_id, save_dir)
     
     return student_id
-
-def create_student_plot(student_data, model, student_id, save_dir, jitter_amount):
-    """Create and save plot for a student's trajectory."""
-    plt.figure(figsize=(12, 6))
-    
-    # Plot actual data points
-    plt.scatter(student_data['protocol'], student_data['accuracy'],
-               color='blue', alpha=0.7, s=100,
-               label='Actual Scores')
-    
-    # Generate predictions
-    X = torch.tensor([
-        [p, d] for p, d in zip(
-            student_data['protocol'],
-            student_data['days_since_start']
-        )
-    ], dtype=torch.float32)
-    
-    with torch.no_grad():
-        y_pred = model(X)
-    
-    plt.plot(student_data['protocol'], y_pred.numpy(),
-            'r-', linewidth=2, label='Model Predictions')
-    
-    plt.xlabel('Protocol Number')
-    plt.ylabel('Accuracy')
-    plt.title(f'Student {student_id} Reading Progress')
-    plt.legend()
-    plt.grid(True)
-    
-    # Save plot
-    os.makedirs(save_dir, exist_ok=True)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    plt.savefig(os.path.join(save_dir, f'student_{student_id}_trajectory_{timestamp}.png'))
-    plt.close()
 
 def find_student_indices(dataset, student_id):
     """

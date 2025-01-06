@@ -4,11 +4,21 @@ import os
 import pandas as pd
 import torch
 import tempfile
+import matplotlib.pyplot as plt
+import numpy as np
+from datetime import datetime
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from src.data.dataset import ReadingScoreDataset
 from src.model.asymptotic_model import AsymptoticModel
-from src.examples.visualize_student import find_student_indices, load_last_model, load_parameters_from_file, create_model_from_parameters, plot_student_trajectory
+from src.examples.visualize_student import (
+    find_student_indices, 
+    load_last_model, 
+    load_parameters_from_file, 
+    create_model_from_parameters, 
+    plot_student_trajectory
+)
+from src.visualization.student_plots import StudentTrajectoryPlot
 
 class TestVisualizeStudent(unittest.TestCase):
     def setUp(self):
@@ -208,6 +218,44 @@ class TestVisualizeStudent(unittest.TestCase):
             files = os.listdir(tmpdir)
             self.assertTrue(any(f.startswith(f'student_{student_id}_trajectory') 
                               for f in files))
+    
+    def test_plot_formatting(self):
+        """Test that plot formatting meets requirements."""
+        params = {'learning_rate (k)': 0.1, 'initial_level (b)': 0.5}
+        model = create_model_from_parameters(params)
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create plot
+            plotter = StudentTrajectoryPlot()  # Create plotter instance
+            student_id = plot_student_trajectory(
+                model, 
+                self.dataset, 
+                min_tests=3, 
+                save_dir=tmpdir
+            )
+            
+            # Create a new plot to check formatting
+            student_data = self.dataset.get_student_data(student_id)
+            fig = plotter.plot_trajectory(student_data, model, student_id)
+            
+            # Test figure size
+            self.assertEqual(fig.get_size_inches().tolist(), [12, 6])
+            
+            # Test x-axis ticks are integers
+            ax = fig.gca()
+            xticks = ax.get_xticks()
+            self.assertTrue(all(x.is_integer() for x in xticks))
+            
+            # Test y-axis formatter
+            self.assertIsInstance(
+                ax.yaxis.get_major_formatter(), 
+                plt.FormatStrFormatter
+            )
+            
+            # Test grid is visible
+            self.assertTrue(ax.grid)
+            
+            plt.close(fig)  # Clean up
     
     def tearDown(self):
         """Clean up temporary files and directories"""
