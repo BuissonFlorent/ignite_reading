@@ -1,10 +1,11 @@
 {
-  "timestamp": "2025-01-05T16:45:32.490311",
+  "timestamp": "2025-01-05T18:39:55.867024",
   "modules": {
     "src.__init__": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\src\\__init__.py",
     "tests.run_tests": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\run_tests.py",
     "tests.test_asymptotic": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\test_asymptotic.py",
     "tests.test_asymptotic_model": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\test_asymptotic_model.py",
+    "tests.test_data": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\test_data.py",
     "tests.test_dataset": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\test_dataset.py",
     "tests.test_dataset_student": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\test_dataset_student.py",
     "tests.test_learning_curves": "c:\\Users\\Florent\\Documents\\Ignite_reading_w_cursor\\tests\\test_learning_curves.py",
@@ -39,7 +40,10 @@
     "tests.test_asymptotic_model": [
       "src.model.asymptotic_model"
     ],
+    "tests.test_data": [],
     "tests.test_dataset": [
+      "src.data.dataset",
+      "tests.test_data.TestData",
       "src.data.dataset"
     ],
     "tests.test_dataset_student": [
@@ -119,5 +123,6 @@
       "src.model.asymptotic_model",
       "src.examples.train_simple"
     ]
-  }
+  },
+  "duplicate_methods": {}
 }

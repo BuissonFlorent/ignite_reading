@@ -5,11 +5,14 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import json
 from datetime import datetime
+from collections import defaultdict
+from typing import Dict, List, Set
 
 class DependencyTracker:
     def __init__(self, project_root):
         self.project_root = Path(project_root)
         self.graph = nx.DiGraph()
+        self.method_definitions: Dict[str, List[str]] = defaultdict(list)
         
     def parse_imports(self, file_path):
         """Parse import statements from a Python file"""
@@ -25,14 +28,35 @@ class DependencyTracker:
                 module = node.module if node.module else ''
                 for name in node.names:
                     imports.append(f"{module}.{name.name}")
+                    
         return imports
+    
+    def find_method_definitions(self, file_path: str) -> Dict[str, List[int]]:
+        """Find all method definitions and their line numbers in a file.
+        
+        Args:
+            file_path: Path to Python file
+            
+        Returns:
+            Dictionary mapping method names to lists of line numbers
+        """
+        with open(file_path, 'r') as f:
+            tree = ast.parse(f.read())
+            
+        methods = defaultdict(list)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
+                methods[node.name].append(node.lineno)
+                
+        return methods
     
     def build_graph(self):
         """Build dependency graph from project files"""
         analysis = {
             'timestamp': datetime.now().isoformat(),
             'modules': {},
-            'dependencies': {}
+            'dependencies': {},
+            'duplicate_methods': {}
         }
         
         for path in self.project_root.rglob('*.py'):
@@ -47,15 +71,25 @@ class DependencyTracker:
             analysis['modules'][module_path] = str(path)
             
             try:
+                # Check for duplicate methods
+                methods = self.find_method_definitions(path)
+                duplicates = {name: lines for name, lines in methods.items() if len(lines) > 1}
+                if duplicates:
+                    analysis['duplicate_methods'][module_path] = duplicates
+                    print(f"\nWARNING: Duplicate methods found in {module_path}:")
+                    for method, lines in duplicates.items():
+                        print(f"  Method '{method}' defined at lines: {lines}")
+                
+                # Parse imports
                 imports = self.parse_imports(path)
                 deps = []
                 for imp in imports:
                     if imp.startswith('src.') or imp.startswith('tests.'):
-                        # Extract base module path
                         base_module = '.'.join(imp.split('.')[:3])
                         self.graph.add_edge(module_path, base_module)
                         deps.append(base_module)
                 analysis['dependencies'][module_path] = deps
+                
             except Exception as e:
                 print(f"Error parsing {path}: {e}")
         
