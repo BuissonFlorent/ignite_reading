@@ -1,6 +1,7 @@
 from torch.utils.data import Dataset
 import pandas as pd
 import torch
+from typing import List
 
 class ReadingScoreDataset(Dataset):
     def __init__(self, test_data_path, student_data_path):
@@ -159,4 +160,22 @@ class ReadingScoreDataset(Dataset):
     
     def __len__(self):
         return len(self.data)    
+    
+    def get_students_with_min_tests(self, min_tests: int) -> List[int]:
+        """Get IDs of students with at least min_tests sequences.
+        
+        Args:
+            min_tests: Minimum number of tests required
+            
+        Returns:
+            List of student IDs meeting criteria
+            
+        Raises:
+            ValueError: If min_tests is negative
+        """
+        if min_tests < 0:
+            raise ValueError(f"min_tests must be non-negative, got {min_tests}")
+        
+        student_counts = self.data.groupby('student_id').size()
+        return list(student_counts[student_counts >= min_tests].index)
   

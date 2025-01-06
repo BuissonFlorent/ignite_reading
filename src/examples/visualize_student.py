@@ -85,79 +85,78 @@ def load_last_model(results_dir='results'):
     return create_model_from_parameters(params)
 
 def plot_student_trajectory(model, dataset, min_tests=10, save_dir='results', jitter_amount=0.2):
-    """Plot a random student's trajectory with at least min_tests reading tests."""
-    # Find eligible students
-    eligible_students = []
-    for i in range(len(dataset)):
-        X, y = dataset[i]
-        if len(y) >= min_tests:
-            eligible_students.append(i)
+    """Plot a student's trajectory with at least min_tests reading tests.
+    
+    Args:
+        model: Trained AsymptoticModel
+        dataset: ReadingScoreDataset instance
+        min_tests: Minimum number of tests required
+        save_dir: Directory to save plots
+        jitter_amount: Amount of jitter to add to visualization
+        
+    Returns:
+        int: ID of plotted student
+        
+    Raises:
+        ValueError: If no eligible students found
+    """
+    # Use dataset interface to find eligible students
+    eligible_students = dataset.get_students_with_min_tests(min_tests)
     
     if not eligible_students:
-        print(f"No students found with at least {min_tests} tests.")
-        return
+        raise ValueError(f"No students found with at least {min_tests} tests")
     
     # Select random student
-    student_idx = np.random.choice(eligible_students)
-    X, y = dataset[student_idx]
-    student_id = dataset.student_ids[student_idx]
+    student_id = np.random.choice(eligible_students)
     
-    # Create figure
+    # Get complete student data using dataset interface
+    student_data = dataset.get_student_data(student_id)
+    
+    # Create visualization
+    create_student_plot(
+        student_data=student_data,
+        model=model,
+        student_id=student_id,
+        save_dir=save_dir,
+        jitter_amount=jitter_amount
+    )
+    
+    return student_id
+
+def create_student_plot(student_data, model, student_id, save_dir, jitter_amount):
+    """Create and save plot for a student's trajectory."""
     plt.figure(figsize=(12, 6))
     
-    # Add small random jitter to protocol numbers for visualization
-    protocols = X[:, 0]
-    days = X[:, 1]
-    jittered_protocols = protocols.numpy() + np.random.uniform(-jitter_amount, jitter_amount, size=len(protocols))
-    
-    # Plot actual data points with jitter
-    plt.scatter(jittered_protocols, y.numpy(), 
+    # Plot actual data points
+    plt.scatter(student_data['protocol'], student_data['accuracy'],
                color='blue', alpha=0.7, s=100,
                label='Actual Scores')
     
-    # Connect actual scores with dotted line in chronological order
-    plt.plot(jittered_protocols, y.numpy(), 
-            'b:', alpha=0.5, linewidth=1.5,
-            label='Test Sequence')
-    
-    # Create smooth prediction curve
-    # Generate a grid of points for smooth curve
-    min_protocol = float(protocols.min())
-    max_protocol = float(protocols.max())
-    min_days = float(days.min())
-    max_days = float(days.max())
-    
-    # Create smooth curve using protocol numbers
-    x_smooth = torch.linspace(min_protocol, max_protocol, 100)
-    days_interp = torch.tensor(np.interp(x_smooth, protocols, days))
-    X_smooth = torch.stack([x_smooth, days_interp], dim=1)
+    # Generate predictions
+    X = torch.tensor([
+        [p, d] for p, d in zip(
+            student_data['protocol'],
+            student_data['days_since_start']
+        )
+    ], dtype=torch.float32)
     
     with torch.no_grad():
-        y_smooth = model(X_smooth)
+        y_pred = model(X)
     
-    # Plot smooth prediction curve
-    plt.plot(x_smooth.numpy(), y_smooth.numpy(), 
+    plt.plot(student_data['protocol'], y_pred.numpy(),
             'r-', linewidth=2, label='Model Predictions')
     
     plt.xlabel('Protocol Number')
     plt.ylabel('Accuracy')
-    plt.title(f'Student {student_id} Reading Progress\n({len(protocols)} tests)')
+    plt.title(f'Student {student_id} Reading Progress')
     plt.legend()
-    plt.grid(True, alpha=0.3)
-    
-    # Set integer ticks for protocols
-    plt.xticks(np.arange(int(min_protocol), int(max_protocol) + 1))
-    
-    # Format y-axis to show 2 decimal places
-    plt.gca().yaxis.set_major_formatter(plt.FormatStrFormatter('%.2f'))
+    plt.grid(True)
     
     # Save plot
+    os.makedirs(save_dir, exist_ok=True)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     plt.savefig(os.path.join(save_dir, f'student_{student_id}_trajectory_{timestamp}.png'))
     plt.close()
-    
-    print(f"Plotted trajectory for student {student_id}")
-    return student_id
 
 def find_student_indices(dataset, student_id):
     """

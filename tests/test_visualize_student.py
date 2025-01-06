@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from src.data.dataset import ReadingScoreDataset
 from src.model.asymptotic_model import AsymptoticModel
-from src.examples.visualize_student import find_student_indices, load_last_model, load_parameters_from_file, create_model_from_parameters
+from src.examples.visualize_student import find_student_indices, load_last_model, load_parameters_from_file, create_model_from_parameters, plot_student_trajectory
 
 class TestVisualizeStudent(unittest.TestCase):
     def setUp(self):
@@ -163,6 +163,51 @@ class TestVisualizeStudent(unittest.TestCase):
                 'learning_rate (k)': 0.1,
                 'initial_level (b)': 1.5  # > 1
             })
+    
+    def test_student_eligibility(self):
+        """Test that student eligibility is correctly determined"""
+        # Test through dataset interface
+        eligible_students = self.dataset.get_students_with_min_tests(3)
+        self.assertEqual(len(eligible_students), 2)
+        self.assertIn(1, eligible_students)
+        self.assertIn(2, eligible_students)
+    
+    def test_plot_student_trajectory(self):
+        """Test student trajectory plotting"""
+        params = {
+            'learning_rate (k)': 0.1,
+            'initial_level (b)': 0.5
+        }
+        model = create_model_from_parameters(params)
+        
+        # Test basic plotting functionality
+        student_id = plot_student_trajectory(model, self.dataset, min_tests=3)
+        self.assertIsNotNone(student_id)
+        self.assertIn(student_id, [1, 2])  # Known test data
+    
+    def test_plot_student_trajectory_errors(self):
+        """Test error conditions in trajectory plotting"""
+        params = {'learning_rate (k)': 0.1, 'initial_level (b)': 0.5}
+        model = create_model_from_parameters(params)
+        
+        with self.assertRaises(ValueError):
+            plot_student_trajectory(model, self.dataset, min_tests=4)
+    
+    def test_plot_student_trajectory_output(self):
+        """Test plot output generation"""
+        params = {'learning_rate (k)': 0.1, 'initial_level (b)': 0.5}
+        model = create_model_from_parameters(params)
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            student_id = plot_student_trajectory(
+                model, 
+                self.dataset, 
+                min_tests=3, 
+                save_dir=tmpdir
+            )
+            files = os.listdir(tmpdir)
+            self.assertTrue(any(f.startswith(f'student_{student_id}_trajectory') 
+                              for f in files))
     
     def tearDown(self):
         """Clean up temporary files and directories"""

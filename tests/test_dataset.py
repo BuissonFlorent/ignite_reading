@@ -140,6 +140,25 @@ class TestReadingScoreDataset(unittest.TestCase):
         self.assertEqual(len(duplicates), 0, 
                         f"Found duplicate method definitions: {duplicates}")
     
+    def test_get_students_with_min_tests(self):
+        """Test getting students with minimum number of tests."""
+        # Should find both students (each has 3 tests)
+        students = self.dataset.get_students_with_min_tests(3)
+        self.assertEqual(len(students), 2)
+        self.assertIn(1, students)
+        self.assertIn(2, students)
+        
+        # Should find no students
+        students = self.dataset.get_students_with_min_tests(4)
+        self.assertEqual(len(students), 0)
+        
+        # Should handle edge cases
+        students = self.dataset.get_students_with_min_tests(0)
+        self.assertEqual(len(students), 2)
+        
+        with self.assertRaises(ValueError):
+            self.dataset.get_students_with_min_tests(-1)
+    
     def tearDown(self):
         """Clean up temporary files"""
         for file_path in self.temp_files:
