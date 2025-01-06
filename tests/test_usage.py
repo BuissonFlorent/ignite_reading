@@ -51,11 +51,11 @@ class TestUsage(unittest.TestCase):
         self.assertFalse(torch.isnan(X).any())  # No NaN values
     
     def test_iteration(self):
-        """Test that we can iterate over the dataset"""
-        num_students = len(self.dataset)
-        self.assertEqual(num_students, 2)  # Should have 2 students
+        """Test that we can iterate over the dataset sequences"""
+        num_sequences = len(self.dataset)
+        self.assertEqual(num_sequences, 5)  # Should have 5 sequences total
         
-        for i in range(num_students):
+        for i in range(num_sequences):
             X, y = self.dataset[i]
             self.assertIsInstance(X, torch.Tensor)
             self.assertIsInstance(y, torch.Tensor)
