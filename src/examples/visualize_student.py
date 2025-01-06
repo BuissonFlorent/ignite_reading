@@ -27,19 +27,38 @@ def load_parameters_from_file(param_file):
     return params
 
 def create_model_from_parameters(params):
-    """
-    Create and initialize model with given parameters
+    """Create model from parameter dictionary.
     
     Args:
-        params: Dictionary of parameter values
-    
+        params: Dictionary containing model parameters
+        
     Returns:
-        AsymptoticModel: Initialized model
+        Initialized AsymptoticModel
+        
+    Raises:
+        KeyError: If required parameters are missing
+        ValueError: If parameters are invalid
     """
+    # Validate parameters exist
+    required_params = {'learning_rate (k)', 'initial_level (b)'}
+    if not required_params.issubset(params.keys()):
+        raise KeyError(f"Missing required parameters. Need: {required_params}")
+    
+    # Validate parameter values
+    k = params['learning_rate (k)']
+    b = params['initial_level (b)']
+    
+    if k <= 0:
+        raise ValueError(f"Learning rate must be positive, got {k}")
+    if not 0 <= b <= 1:
+        raise ValueError(f"Initial level must be between 0 and 1, got {b}")
+    
+    # Create and initialize model
     model = AsymptoticModel()
-    with torch.no_grad():
-        model.k.data = torch.log(torch.tensor([params['learning_rate (k)']]))
-        model.b.data = torch.logit(torch.tensor([params['initial_level (b)']]))
+    model.beta_protocol.data = torch.tensor([k])
+    model.beta_time.data = torch.zeros(1)
+    model.b.data = torch.logit(torch.tensor([b]))
+    
     return model
 
 def load_last_model(results_dir='results'):

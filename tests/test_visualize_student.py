@@ -83,13 +83,86 @@ class TestVisualizeStudent(unittest.TestCase):
         model = create_model_from_parameters(params)
         
         with torch.no_grad():
-            self.assertAlmostEqual(float(torch.exp(model.k)), 0.1)
+            # Test beta parameters instead of k
+            self.assertAlmostEqual(float(model.beta_protocol), 0.1)
+            self.assertAlmostEqual(float(model.beta_time), 0.0)
             self.assertAlmostEqual(float(torch.sigmoid(model.b)), 0.5)
     
     def test_load_last_model(self):
         """Test full model loading pipeline"""
         model = load_last_model(self.results_dir)
         self.assertIsInstance(model, AsymptoticModel)
+    
+    def test_model_parameter_creation(self):
+        """Test that model parameters are correctly set and transformed."""
+        # Test parameters
+        params = {
+            'learning_rate (k)': 0.1,
+            'initial_level (b)': 0.5
+        }
+        
+        # Create model
+        model = create_model_from_parameters(params)
+        
+        # Test beta parameters
+        self.assertTrue(hasattr(model, 'beta_protocol'))
+        self.assertTrue(hasattr(model, 'beta_time'))
+        self.assertTrue(hasattr(model, 'b'))
+        
+        # Test parameter shapes
+        self.assertEqual(model.beta_protocol.shape, torch.Size([1]))
+        self.assertEqual(model.beta_time.shape, torch.Size([1]))
+        self.assertEqual(model.b.shape, torch.Size([1]))
+        
+        # Test parameter values
+        with torch.no_grad():
+            self.assertAlmostEqual(float(model.beta_protocol), 0.1)
+            self.assertAlmostEqual(float(model.beta_time), 0.0)
+            self.assertAlmostEqual(float(torch.sigmoid(model.b)), 0.5)
+    
+    def test_model_predictions(self):
+        """Test that model makes reasonable predictions with set parameters."""
+        # Test parameters
+        params = {
+            'learning_rate (k)': 0.1,
+            'initial_level (b)': 0.5
+        }
+        
+        # Create model
+        model = create_model_from_parameters(params)
+        
+        # Create test input
+        X = torch.tensor([[1.0, 0.0]], dtype=torch.float32)
+        
+        # Get prediction
+        with torch.no_grad():
+            y_pred = model(X)
+        
+        # Test prediction shape
+        self.assertEqual(y_pred.shape, torch.Size([1]))
+        
+        # Test prediction is in valid range
+        self.assertTrue(0 <= float(y_pred) <= 1)
+    
+    def test_invalid_parameters(self):
+        """Test that invalid parameters raise appropriate errors."""
+        # Missing parameters
+        with self.assertRaises(KeyError):
+            create_model_from_parameters({})
+        
+        # Invalid learning rate
+        with self.assertRaises(ValueError):
+            create_model_from_parameters({
+                'learning_rate (k)': -0.1,  # negative learning rate
+                'initial_level (b)': 0.5
+            })
+        
+        # Invalid initial level
+        with self.assertRaises(ValueError):
+            create_model_from_parameters({
+                'learning_rate (k)': 0.1,
+                'initial_level (b)': 1.5  # > 1
+            })
     
     def tearDown(self):
         """Clean up temporary files and directories"""

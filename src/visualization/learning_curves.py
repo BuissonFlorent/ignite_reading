@@ -7,23 +7,16 @@ from src.data.dataset import ReadingScoreDataset
 from src.model.asymptotic_model import AsymptoticModel
 from src.examples.train_simple import load_parameters
 
-def plot_learning_curves(dataset, model, selected_indices=None, n_points=100):
-    """Plot learning curves for selected students.
-    
-    Args:
-        dataset: ReadingScoreDataset instance
-        model: trained model
-        selected_indices: indices of students to plot (default: all)
-        n_points: number of points to generate for predicted curve (default: 100)
-    """
-    if selected_indices is None:
-        selected_indices = range(len(dataset))
+def plot_learning_curves(dataset, model, selected_students=None, n_points=100):
+    """Plot learning curves for selected students."""
+    if selected_students is None:
+        selected_students = dataset.data['student_id'].unique()
     
     plt.figure(figsize=(10, 6))
     
-    for idx in selected_indices:
-        student_data = dataset.get_sequence(idx)
-        student_id = student_data['student_id'].iloc[0]
+    for student_id in selected_students:
+        # Get all sequences for this student
+        student_data = dataset.get_student_data(student_id)
         
         # Plot actual data points
         plt.scatter(student_data['days_since_start'], 

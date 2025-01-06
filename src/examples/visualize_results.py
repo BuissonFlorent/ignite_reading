@@ -44,32 +44,28 @@ def visualize_results(data_path, student_data_path, param_file=None, n_students=
     student_counts = dataset.data.groupby('student_id').size()
     eligible_students = student_counts[student_counts >= min_sequences].index
     
-    # Get indices of sequences for eligible students
-    eligible_indices = dataset.data[dataset.data['student_id'].isin(eligible_students)].index
-    
-    if len(eligible_indices) == 0:
+    if len(eligible_students) == 0:
         raise ValueError(f"No students found with at least {min_sequences} sequences")
     
     # Randomly sample from eligible students
     sample_size = min(n_students, len(eligible_students))
-    sampled_indices = random.sample(list(eligible_indices), sample_size)
+    sampled_students = random.sample(list(eligible_students), sample_size)
     
     print(f"Plotting learning curves for {sample_size} randomly selected students "
           f"(with >= {min_sequences} sequences each)")
+    
+    # After sampling
+    print("\nDebugging sample selection:")
+    for student_id in sampled_students:
+        total_sequences = len(dataset.data[dataset.data['student_id'] == student_id])
+        print(f"Selected student {student_id} has {total_sequences} total sequences")
     
     # Load model with parameters
     model = AsymptoticModel()
     model = load_parameters(model, param_file)
     
     # Create plot with sampled students
-    plot_learning_curves(dataset, model, selected_indices=sampled_indices)
-    
-    # After sampling
-    print("\nDebugging sample selection:")
-    for idx in sampled_indices:
-        student_id = dataset.data.iloc[idx]['student_id']
-        total_sequences = len(dataset.data[dataset.data['student_id'] == student_id])
-        print(f"Selected index {idx}: Student {student_id} has {total_sequences} total sequences")
+    plot_learning_curves(dataset, model, selected_students=sampled_students)
 
 if __name__ == "__main__":
     # Default paths
